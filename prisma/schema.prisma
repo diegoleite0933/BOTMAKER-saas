@@ -1,0 +1,184 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// SAAS - Admin / Proprietário
+// ==========================================
+
+model User {
+  id            String      @id @default(cuid())
+  name          String?
+  email         String?     @unique
+  password      String?     // Bcrypt hash
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  workspaces    Workspace[]
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bots      Bot[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// BOTS E CONFIGURAÇÕES
+// ==========================================
+
+model Bot {
+  id          String   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  username    String?
+  token       String   @unique
+  status      String   @default("inactive") // active, inactive, testing
+  webhookUrl  String?
+  
+  // Opções de Pagamento
+  paymentMethod        String  @default("mercadopago") // mercadopago, pix_direto, amplopay
+  mpAccessToken        String? // Caso seja mercado pago
+  pixKey               String? // Caso seja pix direto
+  amploPayClientId     String? // Caso seja amplo pay
+  amploPayClientSecret String? // Caso seja amplo pay
+
+  // Personalização
+  welcomeMessage  String?
+  welcomeMediaId  String? // file_id do Telegram
+  welcomeMediaType String? // 'photo' ou 'video'
+  storageChatId   String? // ID do canal/grupo de armazenamento de mídias
+  
+  products    Product[]
+  orders      Order[]
+  customers   TelegramUser[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==========================================
+// PRODUTOS E ENTREGÁVEIS
+// ==========================================
+
+model Product {
+  id          String   @id @default(cuid())
+  botId       String
+  bot         Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  price       Float
+  currency    String   @default("BRL")
+  status      String   @default("active") // active, inactive
+  
+  deliveries  ProductDelivery[]
+  orders      Order[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ProductDelivery {
+  id           String   @id @default(cuid())
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type         String   // ENUM: 'group', 'channel', 'file', 'text'
+  telegramChatId String? // ID do grupo/canal no telegram (se type = group/channel)
+  content      String?  // URL do arquivo ou texto da mensagem
+  durationDays Int?     // Null = vitalício, 30 = 30 dias
+}
+
+// ==========================================
+// CLIENTES FINAIS (TELEGRAM)
+// ==========================================
+
+model TelegramUser {
+  id          String   @id // ID do Telegram (não auto-increment)
+  botId       String
+  bot         Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  firstName   String?
+  lastName    String?
+  username    String?
+  
+  orders      Order[]
+  accesses    Access[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([id, botId]) // Um cliente pode interagir com múltiplos bots separadamente
+}
+
+// ==========================================
+// VENDAS (PIX MERCADO PAGO)
+// ==========================================
+
+model Order {
+  id             String       @id @default(cuid())
+  botId          String
+  bot            Bot          @relation(fields: [botId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  telegramUserId String
+  telegramUser   TelegramUser @relation(fields: [telegramUserId, botId], references: [id, botId], onDelete: Restrict)
+  
+  status         String       @default("pending") // pending, paid, failed, cancelled, refunded
+  amount         Float
+  currency       String       @default("BRL")
+  
+  paymentGateway String       @default("mercadopago")
+  paymentId      String?      @unique // ID gerado pelo Mercado Pago
+  paymentQrCode  String?
+  paymentTicketUrl String?
+  receiptUrl     String?      // Imagem do comprovante enviado (caso pix_direto)
+  
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+// ==========================================
+// CONTROLE DE ACESSO
+// ==========================================
+
+model Access {
+  id             String       @id @default(cuid())
+  telegramUserId String
+  botId          String
+  telegramUser   TelegramUser @relation(fields: [telegramUserId, botId], references: [id, botId], onDelete: Cascade)
+  
+  deliveryId     String
+  
+  status         String       @default("active") // active, expired, revoked
+  inviteLink     String?      // Link único gerado para o usuário
+  
+  expiresAt      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+// ==========================================
+// IDEMPOTÊNCIA E WEBHOOKS
+// ==========================================
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  source      String   // 'telegram' ou 'mercadopago'
+  eventId     String   // ID do update do telegram ou ID do evento do mercado pago
+  payload     String
+  status      String   @default("pending") // pending, processed, failed
+  error       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([source, eventId]) // Garante que um evento não seja processado 2x
+}

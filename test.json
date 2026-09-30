@@ -1,0 +1,1 @@
+{"identifier":"test_123","amount":10,"client":{"name":"Test","email":"test@test.com","phone":"11999999999","document":"44733445849"},"products":[{"id":"p1","name":"p","quantity":1,"price":10}],"callbackUrl":"https://clever-suns-pay.loca.lt"}
