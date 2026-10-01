@@ -16,12 +16,14 @@ model User {
   name          String?
   email         String?     @unique
   password      String?     // Bcrypt hash
-  cpf           String?     @unique
+  cpf           String?
   isBanned      Boolean     @default(false)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
   workspaces    Workspace[]
+
+  @@index([cpf])
 }
 
 model Workspace {
