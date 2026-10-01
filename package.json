@@ -12,6 +12,7 @@
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
     "@base-ui/react": "^1.8.0",
+    "@tailwindcss/postcss": "^4",
     "bcrypt": "^6.0.0",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",
@@ -20,6 +21,8 @@
     "next": "16.3.7",
     "next-auth": "^4.24.15",
     "nodemailer": "^7.0.13",
+    "pix-payload": "^1.0.4",
+    "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "shadcn": "^4.21.0",
@@ -28,7 +31,6 @@
   },
   "devDependencies": {
     "@prisma/client": "^5.22.0",
-    "@tailwindcss/postcss": "^4",
     "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",
     "@types/react": "^19",

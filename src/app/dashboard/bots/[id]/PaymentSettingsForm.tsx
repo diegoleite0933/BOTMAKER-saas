@@ -78,7 +78,7 @@ export function PaymentSettingsForm({
           <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
             <Label>Sua Chave PIX</Label>
             <Input value={pixKey} onChange={e => setPixKey(e.target.value)} placeholder="Ex: 049.286.572-94 ou seu@email.com" />
-            <p className="text-xs text-slate-500">O robô gerará o código Pix pedindo ao cliente que deposite nesta chave exata.</p>
+            <p className="text-xs text-slate-500">Cada venda gera um QR e um código Pix copia e cola com o valor do produto. O comprovante continua sujeito à aprovação manual.</p>
           </div>
         )}
 

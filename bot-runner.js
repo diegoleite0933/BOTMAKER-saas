@@ -71,10 +71,19 @@ async function startBot(botRecord) {
 
       const orderId = `order_${Date.now()}_${ctx.from.id}`;
 
-      if (botRecord.paymentMethod === "pix_direto") {
-        if (!botRecord.pixKey) {
+      if (product.bot.paymentMethod === "pix_direto") {
+        if (!product.bot.pixKey) {
           return ctx.reply("❌ O administrador do bot ainda não configurou a Chave PIX.");
         }
+
+        const pixCodeModule = await import("./src/lib/pix-code.js");
+        const { copyPasteCode, qrCode } = await pixCodeModule.default.generatePixQr({
+          pixKey: product.bot.pixKey,
+          merchantName: product.bot.name,
+          merchantCity: process.env.PIX_MERCHANT_CITY || "SAO PAULO",
+          amount: product.price,
+          transactionId: orderId,
+        });
         
         // Garante que o usuário existe no BD
         await prisma.telegramUser.upsert({
@@ -105,15 +114,19 @@ async function startBot(botRecord) {
           }
         });
 
-        await ctx.reply(`💳 *PAGAMENTO VIA PIX DIRETO*\n\nProduto: ${product.name}\nValor: R$ ${product.price.toFixed(2)}\n\nEnvie o valor acima para a chave PIX abaixo:`, { parse_mode: 'Markdown' });
-        await ctx.reply(`\`${botRecord.pixKey}\``, { parse_mode: 'Markdown' });
-        
-        return ctx.reply("📸 *ATENÇÃO:* Após realizar o pagamento, **envie a foto do comprovante** respondendo a esta mensagem para que o administrador possa liberar o seu acesso.", { parse_mode: 'Markdown' });
+        const amountLabel = product.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+        await ctx.replyWithPhoto(
+          { source: qrCode, filename: "pix.png" },
+          { caption: `Pix de ${amountLabel} para ${product.bot.name}. Chave: ${product.bot.pixKey}` }
+        );
+        await ctx.reply(`Pix copia e cola (${amountLabel}):\n${copyPasteCode}`);
+
+        return ctx.reply("Depois de pagar, envie o comprovante como foto nesta conversa. O acesso será liberado após a aprovação do administrador.");
       }
 
       // Caso Mercado Pago
-      if (botRecord.paymentMethod === "mercadopago") {
-        const mpAccessToken = botRecord.mpAccessToken || process.env.MERCADOPAGO_ACCESS_TOKEN;
+      if (product.bot.paymentMethod === "mercadopago") {
+        const mpAccessToken = product.bot.mpAccessToken || process.env.MERCADOPAGO_ACCESS_TOKEN;
 
         if (!mpAccessToken || mpAccessToken === "seu_access_token_aqui") {
           return ctx.reply("❌ O administrador do bot ainda não configurou o Mercado Pago.");
@@ -195,9 +208,9 @@ async function startBot(botRecord) {
       }
 
       // Caso Amplo Pay
-      if (botRecord.paymentMethod === "amplopay") {
-        const clientId = botRecord.amploPayClientId || process.env.AMPLOPAY_CLIENT_ID;
-        const clientSecret = botRecord.amploPayClientSecret || process.env.AMPLOPAY_CLIENT_SECRET;
+      if (product.bot.paymentMethod === "amplopay") {
+        const clientId = product.bot.amploPayClientId || process.env.AMPLOPAY_CLIENT_ID;
+        const clientSecret = product.bot.amploPayClientSecret || process.env.AMPLOPAY_CLIENT_SECRET;
 
         if (!clientId || !clientSecret) {
           return ctx.reply("❌ O administrador do bot ainda não configurou as chaves da Amplo Pay.");
