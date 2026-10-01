@@ -12,20 +12,23 @@ export function PaymentSettingsForm({
   initialPix, 
   initialMpToken,
   initialAmploId,
-  initialAmploSecret
+  initialAmploSecret,
+  initialPixReviewChatId
 }: { 
   botId: string, 
   initialMethod: string, 
   initialPix: string | null, 
   initialMpToken: string | null,
   initialAmploId: string | null,
-  initialAmploSecret: string | null
+  initialAmploSecret: string | null,
+  initialPixReviewChatId: string | null
 }) {
   const [method, setMethod] = useState(initialMethod);
   const [pixKey, setPixKey] = useState(initialPix || "");
   const [mpToken, setMpToken] = useState(initialMpToken || "");
   const [amplopayId, setAmplopayId] = useState(initialAmploId || "");
   const [amplopaySecret, setAmplopaySecret] = useState(initialAmploSecret || "");
+  const [pixReviewChatId, setPixReviewChatId] = useState(initialPixReviewChatId || "");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -36,14 +39,14 @@ export function PaymentSettingsForm({
       const res = await fetch("/api/bots/payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ botId, method, pixKey, mpToken, amplopayId, amplopaySecret })
+        body: JSON.stringify({ botId, method, pixKey, mpToken, amplopayId, amplopaySecret, pixReviewChatId })
       });
       if (res.ok) {
         setMessage("Configurações salvas com sucesso!");
       } else {
         setMessage("Erro ao salvar.");
       }
-    } catch (e) {
+    } catch {
       setMessage("Erro de conexão.");
     }
     setLoading(false);
@@ -77,8 +80,11 @@ export function PaymentSettingsForm({
         {method === 'pix_direto' && (
           <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
             <Label>Sua Chave PIX</Label>
-            <Input value={pixKey} onChange={e => setPixKey(e.target.value)} placeholder="Ex: 049.286.572-94 ou seu@email.com" />
+            <Input value={pixKey} onChange={e => setPixKey(e.target.value)} placeholder="Chave Pix cadastrada no seu banco" />
             <p className="text-xs text-slate-500">Cada venda gera um QR e um código Pix copia e cola com o valor do produto. O comprovante continua sujeito à aprovação manual.</p>
+            <Label htmlFor="pix-review-chat">Grupo do Telegram para comprovantes (opcional)</Label>
+            <Input id="pix-review-chat" value={pixReviewChatId} onChange={e => setPixReviewChatId(e.target.value)} placeholder="ID do grupo" />
+            <p className="text-xs text-slate-500">Adicione o bot ao grupo e torne-o administrador para encaminhar os comprovantes recebidos.</p>
           </div>
         )}
 
@@ -86,11 +92,11 @@ export function PaymentSettingsForm({
           <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
             <div className="space-y-2">
               <Label>Amplo Pay - Public Key (Client ID)</Label>
-              <Input value={amplopayId} onChange={e => setAmplopayId(e.target.value)} placeholder="Ex: diegobrota_..." />
+              <Input value={amplopayId} onChange={e => setAmplopayId(e.target.value)} placeholder="Client ID da AmploPay" />
             </div>
             <div className="space-y-2">
               <Label>Amplo Pay - Secret Key</Label>
-              <Input value={amplopaySecret} onChange={e => setAmplopaySecret(e.target.value)} placeholder="Ex: 8ej5nonxf..." type="password" />
+              <Input value={amplopaySecret} onChange={e => setAmplopaySecret(e.target.value)} placeholder="Secret Key da AmploPay" type="password" />
             </div>
             <p className="text-xs text-slate-500">Gere essas chaves no painel da Amplo Pay em Integrações.</p>
           </div>
@@ -98,7 +104,7 @@ export function PaymentSettingsForm({
         {method === 'mercadopago' && (
           <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
             <Label>Access Token (Produção)</Label>
-            <Input value={mpToken} onChange={e => setMpToken(e.target.value)} placeholder="APP_USR-..." type="password" />
+            <Input value={mpToken} onChange={e => setMpToken(e.target.value)} placeholder="Access Token do Mercado Pago" type="password" />
             <p className="text-xs text-slate-500">Gere este token no painel de desenvolvedores do Mercado Pago.</p>
           </div>
         )}

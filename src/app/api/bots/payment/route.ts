@@ -12,7 +12,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { botId, method, pixKey, mpToken, amplopayId, amplopaySecret } = await req.json();
+    const { botId, method, pixKey, mpToken, amplopayId, amplopaySecret, pixReviewChatId } = await req.json();
 
     if (!botId) return NextResponse.json({ message: "Missing botId" }, { status: 400 });
 
@@ -37,7 +37,8 @@ export async function POST(req: Request) {
         pixKey: pixKey || null,
         mpAccessToken: mpToken || null,
         amploPayClientId: amplopayId || null,
-        amploPayClientSecret: amplopaySecret || null
+        amploPayClientSecret: amplopaySecret || null,
+        pixReviewChatId: typeof pixReviewChatId === "string" ? pixReviewChatId.trim() || null : null
       }
     });
 

@@ -16,8 +16,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true });
     }
 
+    const order = await prisma.order.findFirst({
+      where: { paymentId: paymentId.toString() },
+      include: { bot: true },
+    });
+    if (!order) {
+      return NextResponse.json({ message: "Pedido ainda não encontrado" }, { status: 404 });
+    }
+
+    // Use the same bot-specific credential that created the payment.
+    const mpAccessToken = order.bot.mpAccessToken || process.env.MERCADOPAGO_ACCESS_TOKEN;
+    if (!mpAccessToken) {
+      return NextResponse.json({ message: "Credencial do Mercado Pago não configurada" }, { status: 503 });
+    }
+
     // Busca status no Mercado Pago
-    const mpAccessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
     const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
       headers: {
         "Authorization": `Bearer ${mpAccessToken}`
@@ -29,7 +42,6 @@ export async function POST(req: Request) {
     }
 
     const paymentInfo = await paymentResponse.json();
-    const orderId = paymentInfo.external_reference || paymentInfo.metadata?.order_id;
     const status = paymentInfo.status; // "approved", "pending", etc.
 
     // Salvar webhook
@@ -44,11 +56,7 @@ export async function POST(req: Request) {
 
     if (status === "approved") {
       // Usar o paymentId para achar o pedido (salvamos como paymentId)
-      const order = await prisma.order.findFirst({
-        where: { paymentId: paymentId.toString() }
-      });
-
-      if (order && order.status !== "paid") {
+      if (order.status !== "paid") {
         await prisma.order.update({
           where: { id: order.id },
           data: { status: "paid" }

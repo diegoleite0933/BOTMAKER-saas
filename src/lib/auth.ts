@@ -3,12 +3,14 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
+import { isAdminEmail, normalizeCpf } from "@/lib/account-security";
 
 const prisma = new PrismaClient();
+type AccountTokenFields = { id?: string | null; isAdmin?: boolean; isBanned?: boolean };
 
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET || "your_nextauth_secret_here",
-  adapter: PrismaAdapter(prisma) as any,
+  adapter: PrismaAdapter(prisma) as unknown as NextAuthOptions["adapter"],
   session: {
     strategy: "jwt",
   },
@@ -19,7 +21,7 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email", placeholder: "seu@email.com" },
+        email: { label: "E-mail ou CPF", type: "text" },
         password: { label: "Senha", type: "password" },
       },
       async authorize(credentials) {
@@ -27,11 +29,18 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Dados inválidos");
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+        const identifier = credentials.email.trim();
+        const cpf = normalizeCpf(identifier);
+        const user = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { email: identifier.toLowerCase() },
+              { cpf: cpf || "__invalid_cpf__" },
+            ],
+          },
         });
 
-        if (!user || !user.password) {
+        if (!user || !user.password || user.isBanned) {
           throw new Error("Usuário não encontrado");
         }
 
@@ -54,14 +63,31 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user }) {
+      const accountToken = token as typeof token & AccountTokenFields;
       if (user) {
-        token.id = user.id;
+        accountToken.id = user.id;
       }
-      return token;
+
+      if (typeof accountToken.id === "string") {
+        const account = await prisma.user.findUnique({
+          where: { id: accountToken.id },
+          select: { id: true, email: true, isBanned: true },
+        });
+
+        accountToken.isBanned = !account || account.isBanned;
+        accountToken.isAdmin = account ? isAdminEmail(account.email) : false;
+        if (!account || account.isBanned) accountToken.id = null;
+      }
+
+      return accountToken;
     },
     async session({ session, token }) {
       if (token && session.user) {
-        (session.user as any).id = token.id;
+        const accountToken = token as typeof token & AccountTokenFields;
+        const sessionUser = session.user as typeof session.user & AccountTokenFields;
+        sessionUser.id = typeof accountToken.id === "string" ? accountToken.id : null;
+        sessionUser.isAdmin = accountToken.isAdmin === true;
+        sessionUser.isBanned = accountToken.isBanned === true;
       }
       return session;
     },

@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PaymentSettingsForm } from "./PaymentSettingsForm";
 import { WelcomeSettingsForm } from "./WelcomeSettingsForm";
@@ -86,7 +85,7 @@ export default async function BotConfigPage({ params }: { params: Promise<{ id: 
                 <ol className="list-decimal ml-4 mt-2 space-y-1">
                   <li>Abra o seu Grupo/Canal no Telegram.</li>
                   <li>Vá em Administradores e adicione o <strong>@{bot.username}</strong>.</li>
-                  <li>Dê a ele permissão de "Convidar Usuários" via Link.</li>
+                  <li>Dê a ele permissão de &quot;Convidar Usuários&quot; via Link.</li>
                 </ol>
               </div>
             </div>
@@ -110,6 +109,7 @@ export default async function BotConfigPage({ params }: { params: Promise<{ id: 
           initialMpToken={bot.mpAccessToken} 
           initialAmploId={bot.amploPayClientId}
           initialAmploSecret={bot.amploPayClientSecret}
+          initialPixReviewChatId={bot.pixReviewChatId}
         />
       </div>
     </div>

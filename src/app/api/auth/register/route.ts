@@ -1,27 +1,32 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
+import { normalizeCpf } from "@/lib/account-security";
 
 const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password } = await req.json();
+    const { name, email, password, cpf } = await req.json();
+    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const normalizedCpf = normalizeCpf(cpf);
 
-    if (!name || !email || !password) {
+    if (!name || !normalizedEmail || !password || !normalizedCpf) {
       return NextResponse.json(
-        { message: "Dados incompletos" },
+        { message: "Informe nome, e-mail, senha e um CPF válido." },
         { status: 400 }
       );
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [{ email: normalizedEmail }, { cpf: normalizedCpf }],
+      },
     });
 
     if (existingUser) {
       return NextResponse.json(
-        { message: "E-mail já cadastrado" },
+        { message: existingUser.email === normalizedEmail ? "E-mail já cadastrado" : "CPF já cadastrado" },
         { status: 400 }
       );
     }
@@ -31,7 +36,8 @@ export async function POST(req: Request) {
     const user = await prisma.user.create({
       data: {
         name,
-        email,
+        email: normalizedEmail,
+        cpf: normalizedCpf,
         password: hashedPassword,
         workspaces: {
           create: {

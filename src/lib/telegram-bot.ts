@@ -1,6 +1,7 @@
 import { Telegraf } from "telegraf";
 import { PrismaClient, Bot } from "@prisma/client";
 import { generatePixQr } from "@/lib/pix-code";
+import { createMercadoPagoPix, createAmploPayPix } from "@/lib/payment-gateways";
 
 const prisma = new PrismaClient();
 const botInstances = new Map<string, Telegraf>();
@@ -128,31 +129,21 @@ export function getBot(botRecord: Bot): Telegraf {
         const baseUrl = process.env.APP_URL || "http://localhost:3000";
         const webhookUrl = `${baseUrl}/api/webhooks/mercadopago`;
 
-        const response = await fetch("https://api.mercadopago.com/v1/payments", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${mpAccessToken}`,
-            "X-Idempotency-Key": orderId
-          },
-          body: JSON.stringify({
-            transaction_amount: Number(product.price.toFixed(2)),
+        let paymentData;
+        try {
+          paymentData = await createMercadoPagoPix({
+            accessToken: mpAccessToken,
+            orderId,
+            amount: product.price,
             description: product.name,
-            payment_method_id: "pix",
-            notification_url: webhookUrl,
-            payer: {
-              email: `tg_${ctx.from.id}@botmaker.local`,
-              first_name: ctx.from.first_name || "Cliente Telegram",
-              identification: { type: "CPF", number: "19119119100" }
-            }
-          })
-        });
-
-        if (!response.ok) {
-          return ctx.reply("❌ Falha na API do Mercado Pago.");
+            notificationUrl: webhookUrl,
+            payerEmail: `tg_${ctx.from.id}@botmaker.local`,
+            payerName: ctx.from.first_name || "Cliente Telegram",
+          });
+        } catch (error) {
+          console.error("Mercado Pago Pix error:", error);
+          return ctx.reply("❌ Não foi possível gerar o Pix no Mercado Pago. Confira o token e a conta cadastrada.");
         }
-
-        const paymentData = await response.json();
         
         await prisma.order.create({
           data: {
@@ -162,14 +153,20 @@ export function getBot(botRecord: Bot): Telegraf {
             telegramUserId: ctx.from.id.toString(),
             status: "pending",
             amount: product.price,
-            paymentId: paymentData.id.toString(),
+            paymentId: paymentData.paymentId,
+            paymentQrCode: paymentData.pixCode,
+            paymentTicketUrl: paymentData.ticketUrl,
             paymentGateway: "mercadopago"
           }
         });
 
-        const pixCode = paymentData.point_of_interaction.transaction_data.qr_code;
-        await ctx.reply(`💳 *PAGAMENTO VIA PIX (Mercado Pago)*\n\nProduto: ${product.name}\nValor: R$ ${product.price.toFixed(2)}\n\nCopie o código abaixo e pague no seu banco:`, { parse_mode: 'Markdown' });
-        await ctx.reply(`\`${pixCode}\``, { parse_mode: 'Markdown' });
+        const amountLabel = product.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+        if (paymentData.qrCodeBase64) {
+          await ctx.replyWithPhoto(Buffer.from(paymentData.qrCodeBase64, "base64"), {
+            caption: `Pix de ${amountLabel} para ${product.name}.`,
+          });
+        }
+        await ctx.reply(`Pix copia e cola (${amountLabel}):\n${paymentData.pixCode}`);
         return;
       }
 
@@ -213,25 +210,13 @@ export function getBot(botRecord: Bot): Telegraf {
           callbackUrl: webhookUrl
         };
 
-        const response = await fetch("https://app.amplopay.com/api/v1/gateway/pix/receive", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-public-key": clientId,
-            "x-secret-key": clientSecret
-          },
-          body: JSON.stringify(payload)
-        });
-
-        // Use node-fetch natively se não estiver em ambiente cloudflare, 
-        // Em serverless / vercel, o IP da Vercel GERALMENTE passa no WAF da Amplo Pay.
-        // Se falhar no futuro, recomendaremos webhook P2P.
-        if (!response.ok) {
-           console.log("Amplo Pay Erro HTTP", response.status);
-           return ctx.reply("❌ Falha ao gerar PIX na Amplo Pay.");
+        let paymentData;
+        try {
+          paymentData = await createAmploPayPix({ clientId, clientSecret, payload });
+        } catch (error) {
+          console.error("AmploPay Pix error:", error);
+          return ctx.reply("❌ Não foi possível gerar o Pix na AmploPay. Confira as credenciais cadastradas.");
         }
-        
-        const paymentData = await response.json();
 
         await prisma.order.create({
           data: {
@@ -241,20 +226,106 @@ export function getBot(botRecord: Bot): Telegraf {
             telegramUserId: ctx.from.id.toString(),
             status: "pending",
             amount: product.price,
-            paymentId: paymentData.transactionId,
+            paymentId: paymentData.paymentId || undefined,
+            paymentQrCode: paymentData.pixCode,
             paymentGateway: "amplopay"
           }
         });
 
-        const pixCode = paymentData.pix.code;
-        await ctx.reply(`💳 *PAGAMENTO VIA PIX (Amplo Pay)*\n\nProduto: ${product.name}\nValor: R$ ${product.price.toFixed(2)}\n\nCopie o código abaixo e pague no seu banco:`, { parse_mode: 'Markdown' });
-        await ctx.reply(`\`${pixCode}\``, { parse_mode: 'Markdown' });
+        const amountLabel = product.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+        await ctx.reply(`Pix copia e cola AmploPay (${amountLabel}):\n${paymentData.pixCode}`);
         return;
       }
 
     } catch (err) {
       console.error(err);
       ctx.reply("❌ Ocorreu um erro interno.");
+    }
+  });
+
+  bot.action(/^pix_review_(approve|reject)_(.+)$/, async (ctx) => {
+    try {
+      const order = await prisma.order.findUnique({
+        where: { id: ctx.match[2] },
+        include: { bot: true, product: { include: { deliveries: true } } },
+      });
+      const chatId = String(ctx.chat?.id || "");
+
+      if (!order || !order.bot.pixReviewChatId || order.bot.pixReviewChatId !== chatId) {
+        return ctx.answerCbQuery("Este grupo não está autorizado para revisar comprovantes.", { show_alert: true });
+      }
+
+      const administrators = await ctx.telegram.getChatAdministrators(chatId);
+      if (!administrators.some((member) => member.user.id === ctx.from.id)) {
+        return ctx.answerCbQuery("Somente administradores do grupo podem revisar pagamentos.", { show_alert: true });
+      }
+      if (order.status !== "review" || order.paymentGateway !== "pix_direto") {
+        return ctx.answerCbQuery("Este comprovante já foi processado.", { show_alert: true });
+      }
+
+      const action = ctx.match[1];
+      if (action === "reject") {
+        const result = await prisma.order.updateMany({
+          where: { id: order.id, status: "review" },
+          data: { status: "cancelled" },
+        });
+        if (!result.count) return ctx.answerCbQuery("Este comprovante já foi processado.");
+
+        await ctx.telegram.sendMessage(order.telegramUserId, "O comprovante do seu Pix não foi aprovado. Entre em contato com o vendedor para verificar o pagamento.");
+        await ctx.answerCbQuery("Pagamento recusado.");
+        await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
+        return;
+      }
+
+      const delivery = order.product.deliveries[0];
+      if (!delivery) return ctx.answerCbQuery("Este produto não tem entrega configurada.", { show_alert: true });
+
+      let inviteLink: string | null = null;
+      if ((delivery.type === "group" || delivery.type === "channel") && delivery.telegramChatId) {
+        const invite = await ctx.telegram.createChatInviteLink(delivery.telegramChatId, {
+          member_limit: 1,
+          expire_date: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
+          name: `Pedido ${order.id}`,
+        });
+        inviteLink = invite.invite_link;
+      } else if (!delivery.content) {
+        return ctx.answerCbQuery("Este produto não tem dados de entrega configurados.", { show_alert: true });
+      }
+
+      try {
+        const approved = await prisma.$transaction(async (transaction) => {
+          const result = await transaction.order.updateMany({
+            where: { id: order.id, status: "review" },
+            data: { status: "paid" },
+          });
+          if (!result.count) return false;
+
+          await transaction.access.create({
+            data: {
+              telegramUserId: order.telegramUserId,
+              botId: order.botId,
+              deliveryId: delivery.id,
+              inviteLink,
+              status: "active",
+              expiresAt: delivery.durationDays ? new Date(Date.now() + delivery.durationDays * 86400000) : null,
+            },
+          });
+          return true;
+        });
+        if (!approved) return ctx.answerCbQuery("Este comprovante já foi processado.", { show_alert: true });
+      } catch (error) {
+        if (inviteLink && delivery.telegramChatId) {
+          await ctx.telegram.revokeChatInviteLink(delivery.telegramChatId, inviteLink).catch(() => undefined);
+        }
+        throw error;
+      }
+
+      await ctx.telegram.sendMessage(order.telegramUserId, `✅ Pagamento aprovado.\n${inviteLink || delivery.content}`);
+      await ctx.answerCbQuery("Pagamento aprovado e acesso enviado.");
+      await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
+    } catch (error) {
+      console.error("Erro ao revisar comprovante Pix:", error);
+      await ctx.answerCbQuery("Não foi possível processar a revisão.", { show_alert: true });
     }
   });
 
@@ -274,15 +345,13 @@ export function getBot(botRecord: Bot): Telegraf {
           status: "pending",
           paymentGateway: "pix_direto"
         },
-        include: { product: true }
+        include: { product: true, bot: true }
       });
 
       if (!pendingOrder) return;
 
       const photo = ctx.message.photo[ctx.message.photo.length - 1]; 
       const fileId = photo.file_id;
-
-      await ctx.reply("✅ Comprovante recebido! Ele foi enviado para a equipe de moderação. Assim que for aprovado, seu link será liberado aqui.");
 
       await prisma.order.update({
         where: { id: pendingOrder.id },
@@ -291,6 +360,22 @@ export function getBot(botRecord: Bot): Telegraf {
           status: "review" 
         }
       });
+
+      if (pendingOrder.bot.pixReviewChatId) {
+        const amountLabel = pendingOrder.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+        await ctx.telegram.sendPhoto(pendingOrder.bot.pixReviewChatId, fileId, {
+          caption: `Comprovante Pix para revisar\nPedido: ${pendingOrder.id}\nCliente: ${ctx.from.first_name || "Cliente"} (@${ctx.from.username || "sem usuário"})\nProduto: ${pendingOrder.product.name}\nValor: ${amountLabel}`,
+          reply_markup: {
+            inline_keyboard: [[
+              { text: "Aprovar", callback_data: `pix_review_approve_${pendingOrder.id}` },
+              { text: "Recusar", callback_data: `pix_review_reject_${pendingOrder.id}` },
+            ]],
+          },
+        });
+        await ctx.reply("✅ Comprovante recebido e enviado para revisão no grupo.");
+      } else {
+        await ctx.reply("✅ Comprovante salvo. O administrador ainda precisa configurar o grupo de revisão do Pix.");
+      }
       
     } catch (err) {
       console.error(err);

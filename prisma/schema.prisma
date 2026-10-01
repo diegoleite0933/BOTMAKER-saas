@@ -16,6 +16,8 @@ model User {
   name          String?
   email         String?     @unique
   password      String?     // Bcrypt hash
+  cpf           String?     @unique
+  isBanned      Boolean     @default(false)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -52,6 +54,7 @@ model Bot {
   pixKey               String? // Caso seja pix direto
   amploPayClientId     String? // Caso seja amplo pay
   amploPayClientSecret String? // Caso seja amplo pay
+  pixReviewChatId      String?
 
   // Personalização
   welcomeMessage  String?
