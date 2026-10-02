@@ -20,7 +20,7 @@ export default async function DashboardPage() {
 
   const [botsCount, accessCount, productsCount, paidToday, latestOrders] = await Promise.all([
     prisma.bot.count({ where: { workspace: { userId }, status: "active" } }),
-    prisma.access.count({ where: { bot: { workspace: { userId } }, status: "active" } }),
+    prisma.access.count({ where: { telegramUser: { bot: { workspace: { userId } } }, status: "active" } }),
     prisma.product.count({ where: { bot: { workspace: { userId } } } }),
     prisma.order.aggregate({ where: { ...workspaceScope, status: "paid", createdAt: { gte: today } }, _sum: { amount: true } }),
     prisma.order.findMany({
@@ -34,16 +34,16 @@ export default async function DashboardPage() {
   const formatCurrency = (amount: number) => amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
-    <div className="space-y-6 md:space-y-8">
+    <div className="min-w-0 space-y-5 md:space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-blue-700">Dashboard</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">Visão Geral</h1>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Visão Geral</h1>
         </div>
-        <Link href="/dashboard/bots/new" className={buttonVariants({ className: "bg-blue-600 hover:bg-blue-700 text-white" })}>+ Novo Bot</Link>
+        <Link href="/dashboard/bots/new" className={buttonVariants({ className: "w-full bg-blue-600 text-white hover:bg-blue-700 sm:w-auto" })}>+ Novo Bot</Link>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Vendas (Hoje)</CardTitle>

@@ -52,13 +52,13 @@ export function SalesChart() {
 
   return (
     <Card className="overflow-hidden rounded-lg border-[#3a3d3c] bg-[#202221] text-white">
-      <CardHeader className="flex flex-col gap-4 pb-0 sm:flex-row sm:items-center sm:justify-between">
-        <CardTitle className="text-xl font-bold text-lime-300">Histórico de Vendas</CardTitle>
-        <label className="flex items-center gap-2 text-sm text-slate-300">
+      <CardHeader className="flex flex-col gap-3 px-4 pb-0 pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6 sm:pt-6">
+        <CardTitle className="text-lg font-bold text-lime-300 sm:text-xl">Histórico de Vendas</CardTitle>
+        <label className="flex w-full items-center justify-between gap-2 text-sm text-slate-300 sm:w-auto sm:justify-start">
           <span>Período</span>
           <select
             aria-label="Filtrar vendas por período"
-            className="h-9 rounded-md border border-[#4a4d4c] bg-[#292c2b] px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            className="h-10 min-w-0 w-full max-w-52 flex-1 rounded-md border border-[#4a4d4c] bg-[#292c2b] px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 sm:w-auto sm:flex-none"
             value={period}
             onChange={(event) => setPeriod(Number(event.target.value) as Period)}
           >
@@ -66,13 +66,13 @@ export function SalesChart() {
           </select>
         </label>
       </CardHeader>
-      <CardContent className="pt-5">
+      <CardContent className="px-3 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
         {error ? (
-          <div role="alert" className="flex h-[300px] items-center justify-center text-sm text-rose-300">{error}</div>
+          <div role="alert" className="flex h-[260px] items-center justify-center text-center text-sm text-rose-300 sm:h-[300px]">{error}</div>
         ) : loading ? (
-          <div className="h-[300px] animate-pulse rounded bg-[#252827]" aria-label="Carregando vendas" />
+          <div className="h-[260px] animate-pulse rounded bg-[#252827] sm:h-[300px]" aria-label="Carregando vendas" />
         ) : (
-          <div className="h-[300px] w-full" aria-label="Gráfico de vendas pagas e aguardando pagamento">
+          <div className="h-[260px] w-full sm:h-[300px]" aria-label="Gráfico de vendas pagas e aguardando pagamento">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
                 <CartesianGrid stroke="#3a3d3c" vertical={false} />
@@ -97,7 +97,7 @@ export function SalesChart() {
                   contentStyle={{ background: "#171918", border: "1px solid #3a3d3c", borderRadius: 6, color: "#fff" }}
                   labelStyle={{ color: "#d4d4d4" }}
                 />
-                <Legend verticalAlign="top" align="right" height={34} wrapperStyle={{ color: "#f5f5f5", fontSize: 12 }} />
+                <Legend verticalAlign="top" align="center" height={42} wrapperStyle={{ color: "#f5f5f5", fontSize: 11, width: "100%" }} />
                 <Line type="monotone" dataKey="paid" name="Vendas Pagas" stroke="#c8f000" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
                 <Line type="monotone" dataKey="pending" name="Aguardando Pagamento" stroke="#00e5dc" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
               </LineChart>

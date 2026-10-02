@@ -63,6 +63,7 @@ model Bot {
   welcomeMediaId  String? // file_id do Telegram
   welcomeMediaType String? // 'photo' ou 'video'
   storageChatId   String? // ID do canal/grupo de armazenamento de mídias
+  welcomeMedia    WelcomeMedia[]
   
   products    Product[]
   orders      Order[]
@@ -224,4 +225,17 @@ model RemarketingSend {
 
   @@unique([remarketingId, telegramUserId])
   @@index([botId, status])
+}
+
+model WelcomeMedia {
+  id        String   @id @default(cuid())
+  botId     String
+  bot       Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  fileId    String
+  mediaType String
+  position  Int
+  createdAt DateTime @default(now())
+
+  @@unique([botId, position])
+  @@index([botId, position])
 }

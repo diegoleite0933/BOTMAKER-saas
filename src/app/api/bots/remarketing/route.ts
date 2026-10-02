@@ -5,6 +5,14 @@ import { authOptions } from "@/lib/auth";
 
 const prisma = new PrismaClient();
 const maxCampaignsPerBot = 10;
+type CampaignData = {
+  name: string;
+  message: string | null;
+  delayDays: number;
+  mediaFileId: string | null;
+  mediaType: "photo" | "video" | null;
+  isActive: boolean;
+};
 
 async function getOwnedBot(botId: unknown, userId: string) {
   if (typeof botId !== "string" || !botId) return null;
@@ -14,7 +22,7 @@ async function getOwnedBot(botId: unknown, userId: string) {
   });
 }
 
-function parseCampaign(body: Record<string, unknown>) {
+function parseCampaign(body: Record<string, unknown>): { ok: true; value: CampaignData } | { ok: false; message: string } {
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const message = typeof body.message === "string" ? body.message.trim() : "";
   const delayDays = Number(body.delayDays);
@@ -22,15 +30,15 @@ function parseCampaign(body: Record<string, unknown>) {
   const mediaType = body.mediaType === "photo" || body.mediaType === "video" ? body.mediaType : null;
   const isActive = body.isActive === true;
 
-  if (!name || name.length > 80) return { error: "Dê um nome à campanha (até 80 caracteres)." };
+  if (!name || name.length > 80) return { ok: false, message: "Dê um nome à campanha (até 80 caracteres)." };
   if (!Number.isInteger(delayDays) || delayDays < 1 || delayDays > 365) {
-    return { error: "O intervalo deve ser de 1 a 365 dias após o pagamento." };
+    return { ok: false, message: "O intervalo deve ser de 1 a 365 dias após o pagamento." };
   }
-  if (message.length > 1000) return { error: "A mensagem pode ter no máximo 1000 caracteres." };
-  if (mediaFileId && !mediaType) return { error: "Tipo de mídia inválido." };
-  if (isActive && !message && !mediaFileId) return { error: "Adicione uma mensagem ou mídia antes de ativar." };
+  if (message.length > 1000) return { ok: false, message: "A mensagem pode ter no máximo 1000 caracteres." };
+  if (mediaFileId && !mediaType) return { ok: false, message: "Tipo de mídia inválido." };
+  if (isActive && !message && !mediaFileId) return { ok: false, message: "Adicione uma mensagem ou mídia antes de ativar." };
 
-  return { value: { name, message: message || null, delayDays, mediaFileId: mediaFileId || null, mediaType, isActive } };
+  return { ok: true, value: { name, message: message || null, delayDays, mediaFileId: mediaFileId || null, mediaType, isActive } };
 }
 
 export async function GET(request: Request) {
@@ -64,7 +72,7 @@ export async function POST(request: Request) {
   }
 
   const parsed = parseCampaign(body);
-  if (parsed.error) return NextResponse.json({ message: parsed.error }, { status: 400 });
+  if (!parsed.ok) return NextResponse.json({ message: parsed.message }, { status: 400 });
 
   const campaign = await prisma.remarketing.create({ data: { ...parsed.value, botId: bot.id } });
   return NextResponse.json({ campaign }, { status: 201 });
@@ -82,7 +90,7 @@ export async function PATCH(request: Request) {
   }
 
   const parsed = parseCampaign(body);
-  if (parsed.error) return NextResponse.json({ message: parsed.error }, { status: 400 });
+  if (!parsed.ok) return NextResponse.json({ message: parsed.message }, { status: 400 });
   const result = await prisma.remarketing.updateMany({
     where: { id: body.id, botId: bot.id },
     data: parsed.value,

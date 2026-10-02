@@ -36,10 +36,14 @@ export async function POST(request: Request) {
   const bot = new Telegraf(botRecord.token);
   const buffer = Buffer.from(await file.arrayBuffer());
   try {
-    const media = mediaType === "photo"
-      ? await bot.telegram.sendPhoto(botRecord.storageChatId, Input.fromBuffer(buffer, file.name))
-      : await bot.telegram.sendVideo(botRecord.storageChatId, Input.fromBuffer(buffer, file.name));
-    const mediaFileId = mediaType === "photo" ? media.photo[media.photo.length - 1].file_id : media.video.file_id;
+    let mediaFileId: string;
+    if (mediaType === "photo") {
+      const media = await bot.telegram.sendPhoto(botRecord.storageChatId, Input.fromBuffer(buffer, file.name));
+      mediaFileId = media.photo[media.photo.length - 1].file_id;
+    } else {
+      const media = await bot.telegram.sendVideo(botRecord.storageChatId, Input.fromBuffer(buffer, file.name));
+      mediaFileId = media.video.file_id;
+    }
     return NextResponse.json({ mediaFileId, mediaType });
   } catch (error) {
     console.error("Erro ao enviar mídia de remarketing ao Telegram:", error);

@@ -17,6 +17,10 @@ export function getBot(botRecord: Bot): Telegraf {
   bot.start(async (ctx) => {
     try {
       const currentBot = await prisma.bot.findUnique({ where: { id: botRecord.id } });
+      const savedWelcomeMedia = await prisma.welcomeMedia.findMany({
+        where: { botId: botRecord.id },
+        orderBy: { position: "asc" },
+      });
       const products = await prisma.product.findMany({
         where: { botId: botRecord.id, status: 'active' }
       });
@@ -30,22 +34,33 @@ export function getBot(botRecord: Bot): Telegraf {
         return [{ text: `${p.name} - R$ ${p.price.toFixed(2)}`, callback_data: `buy_${p.id}` }];
       });
 
-      if (currentBot?.welcomeMediaId && currentBot?.welcomeMediaType) {
+      const welcomeMedia = savedWelcomeMedia.length > 0
+        ? savedWelcomeMedia
+        : currentBot?.welcomeMediaId && currentBot.welcomeMediaType
+          ? [{ fileId: currentBot.welcomeMediaId, mediaType: currentBot.welcomeMediaType }]
+          : [];
+
+      if (welcomeMedia.length > 0) {
         try {
-          if (currentBot.welcomeMediaType === 'video') {
-            await ctx.replyWithVideo(currentBot.welcomeMediaId, { caption: message, reply_markup: { inline_keyboard: buttons } });
+          if (welcomeMedia.length === 1 && welcomeMedia[0].mediaType === "video") {
+            await ctx.replyWithVideo(welcomeMedia[0].fileId, { caption: message, reply_markup: { inline_keyboard: buttons } });
+            return;
+          }
+          if (welcomeMedia.length === 1) {
+            await ctx.replyWithPhoto(welcomeMedia[0].fileId, { caption: message, reply_markup: { inline_keyboard: buttons } });
+            return;
           } else {
-            await ctx.replyWithPhoto(currentBot.welcomeMediaId, { caption: message, reply_markup: { inline_keyboard: buttons } });
+            await ctx.replyWithMediaGroup(welcomeMedia.map((media) => ({
+              type: media.mediaType === "video" ? "video" as const : "photo" as const,
+              media: media.fileId,
+            })));
           }
         } catch (mediaErr) {
-          console.error("Erro ao enviar mídia, enviando só texto:", mediaErr);
-          await ctx.reply(message, { reply_markup: { inline_keyboard: buttons } });
+          console.error("Erro ao enviar mídias de boas-vindas:", mediaErr);
         }
-      } else {
-        await ctx.reply(message, {
-          reply_markup: { inline_keyboard: buttons }
-        });
       }
+
+      await ctx.reply(message, { reply_markup: { inline_keyboard: buttons } });
     } catch (err) {
       console.error(err);
       ctx.reply("Ocorreu um erro ao buscar os produtos.");

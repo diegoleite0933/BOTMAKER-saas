@@ -15,10 +15,14 @@ const prisma = new PrismaClient();
 export default async function BotConfigPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
   const session = await getServerSession(authOptions);
+  const sessionUser = session?.user as { id?: string } | undefined;
   
   const bot = await prisma.bot.findUnique({
     where: { id: resolvedParams.id },
-    include: { remarketings: { orderBy: { createdAt: "asc" } } },
+    include: {
+      remarketings: { orderBy: { createdAt: "asc" } },
+      welcomeMedia: { orderBy: { position: "asc" } },
+    },
   });
 
   if (!bot) {
@@ -27,7 +31,7 @@ export default async function BotConfigPage({ params }: { params: Promise<{ id: 
 
   // Verifica segurança: o bot pertence a um workspace do usuário?
   const workspace = await prisma.workspace.findFirst({
-    where: { id: bot.workspaceId, userId: session?.user?.id }
+    where: { id: bot.workspaceId, userId: sessionUser?.id }
   });
 
   if (!workspace) {
@@ -35,13 +39,13 @@ export default async function BotConfigPage({ params }: { params: Promise<{ id: 
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Configurar Bot: {bot.name}</h1>
-          <p className="text-slate-500">@{bot.username}</p>
+    <div className="mx-auto min-w-0 max-w-4xl space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="break-words text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Configurar Bot: {bot.name}</h1>
+          <p className="break-all text-slate-500">@{bot.username}</p>
         </div>
-        <Link href="/dashboard/bots" className={buttonVariants({ variant: "outline" })}>Voltar</Link>
+        <Link href="/dashboard/bots" className={buttonVariants({ variant: "outline", className: "w-full sm:w-auto" })}>Voltar</Link>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -91,9 +95,9 @@ export default async function BotConfigPage({ params }: { params: Promise<{ id: 
                 </ol>
               </div>
             </div>
-            <Button className="w-full bg-blue-600 hover:bg-blue-700" asChild>
-              <Link href={`/dashboard/products/new?botId=${bot.id}`}>Criar Produto para este Bot</Link>
-            </Button>
+            <Link className={buttonVariants({ className: "w-full bg-blue-600 text-white hover:bg-blue-700" })} href={`/dashboard/products/new?botId=${bot.id}`}>
+              Criar Produto para este Bot
+            </Link>
           </CardContent>
         </Card>
       </div>
@@ -103,6 +107,7 @@ export default async function BotConfigPage({ params }: { params: Promise<{ id: 
           botId={bot.id} 
           initialMsg={bot.welcomeMessage} 
           initialStorageChat={bot.storageChatId} 
+          initialMediaCount={bot.welcomeMedia.length || (bot.welcomeMediaId ? 1 : 0)}
         />
         <PaymentSettingsForm 
           botId={bot.id} 
