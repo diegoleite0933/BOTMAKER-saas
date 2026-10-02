@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { isAdminEmail } from "@/lib/account-security";
 import { Brand } from "@/components/Brand";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default async function DashboardLayout({
   children,
@@ -45,8 +46,11 @@ export default async function DashboardLayout({
           )}
         </nav>
         <div className="p-4 border-t border-slate-800">
-          <div className="text-sm truncate text-slate-300 mb-2">
-            👤 {session.user?.name || session.user?.email}
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="min-w-0 truncate text-sm text-slate-300">
+              👤 {session.user?.name || session.user?.email}
+            </div>
+            <ThemeToggle />
           </div>
           <Link href="/api/auth/signout" className="block w-full text-center px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-sm transition-colors">
             Desconectar
@@ -59,7 +63,10 @@ export default async function DashboardLayout({
           <Link className="text-xl tracking-tight" href="/dashboard">
             <Brand className="text-white" />
           </Link>
-          <Link href="/api/auth/signout" className="text-sm text-slate-400 hover:text-white">Sair</Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link href="/api/auth/signout" className="text-sm text-slate-400 hover:text-white">Sair</Link>
+          </div>
         </header>
         <nav aria-label="Navegação principal móvel" className="md:hidden flex gap-1 overflow-x-auto border-b bg-white px-3 py-2">
           <Link href="/dashboard" className="shrink-0 rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Visão Geral</Link>

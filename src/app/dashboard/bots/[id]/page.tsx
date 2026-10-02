@@ -108,6 +108,11 @@ export default async function BotConfigPage({ params }: { params: Promise<{ id: 
           initialMsg={bot.welcomeMessage} 
           initialStorageChat={bot.storageChatId} 
           initialMediaCount={bot.welcomeMedia.length || (bot.welcomeMediaId ? 1 : 0)}
+          initialMedia={bot.welcomeMedia.length > 0
+            ? bot.welcomeMedia.map(({ fileId, mediaType, position }) => ({ fileId, mediaType, position }))
+            : bot.welcomeMediaId && bot.welcomeMediaType
+              ? [{ fileId: bot.welcomeMediaId, mediaType: bot.welcomeMediaType, position: 0 }]
+              : []}
         />
         <PaymentSettingsForm 
           botId={bot.id} 

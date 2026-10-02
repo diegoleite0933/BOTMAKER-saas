@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Brand } from "@/components/Brand";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Home() {
   return (
@@ -10,6 +11,7 @@ export default function Home() {
           <Brand className="text-white" />
         </h1>
         <div className="space-x-4">
+          <ThemeToggle className="align-middle" />
           <Link href="/login">
             <Button variant="ghost" className="text-slate-300 hover:text-white hover:bg-slate-800">
               Entrar

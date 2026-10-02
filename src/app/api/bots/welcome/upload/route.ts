@@ -97,7 +97,10 @@ export async function POST(req: Request) {
       }
     });
 
-    return NextResponse.json({ message: "Success", mediaCount: replaceMedia ? uploadedMedia.length : undefined });
+    return NextResponse.json({
+      message: "Success",
+      media: replaceMedia ? uploadedMedia.map((media, position) => ({ ...media, position })) : undefined,
+    });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ message: "Internal Error" }, { status: 500 });

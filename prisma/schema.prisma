@@ -12,17 +12,17 @@ datasource db {
 // ==========================================
 
 model User {
-  id            String      @id @default(cuid())
-  name          String?
-  nickname      String?
-  email         String?     @unique
-  password      String?     // Bcrypt hash
-  cpf           String?
-  isBanned      Boolean     @default(false)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id        String    @id @default(cuid())
+  name      String?
+  nickname  String?
+  email     String?   @unique
+  password  String?   // Bcrypt hash
+  cpf       String?
+  isBanned  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  workspaces    Workspace[]
+  workspaces Workspace[]
 
   @@index([nickname])
   @@index([cpf])
@@ -82,30 +82,36 @@ model Bot {
 // ==========================================
 
 model Product {
-  id          String   @id @default(cuid())
-  botId       String
-  bot         Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
-  price       Float
-  currency    String   @default("BRL")
-  status      String   @default("active") // active, inactive
+  id                 String    @id @default(cuid())
+  botId              String
+  bot                Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  name               String
+  description        String?
+  price              Float
+  currency           String    @default("BRL")
+  status             String    @default("active") // active, inactive
+  orderBumpProductId String?
+  orderBumpProduct   Product?  @relation("ProductOrderBump", fields: [orderBumpProductId], references: [id], onDelete: SetNull)
+  offeredAsOrderBump Product[] @relation("ProductOrderBump")
+  telegramMediaId    String?
+  telegramMediaType  String?
   
   deliveries  ProductDelivery[]
-  orders      Order[]
+  orders      Order[] @relation("BaseOrderProduct")
+  bumpOrders  Order[] @relation("BumpOrderProduct")
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
 model ProductDelivery {
-  id           String   @id @default(cuid())
-  productId    String
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  type         String   // ENUM: 'group', 'channel', 'file', 'text'
-  telegramChatId String? // ID do grupo/canal no telegram (se type = group/channel)
-  content      String?  // URL do arquivo ou texto da mensagem
-  durationDays Int?     // Null = vitalício, 30 = 30 dias
+  id             String   @id @default(cuid())
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type           String   // ENUM: 'group', 'channel', 'file', 'text'
+  telegramChatId String?  // ID do grupo/canal no telegram (se type = group/channel)
+  content        String?  // URL do arquivo ou texto da mensagem
+  durationDays   Int?     // Null = vitalício, 30 = 30 dias
 }
 
 // ==========================================
@@ -119,6 +125,7 @@ model TelegramUser {
   firstName   String?
   lastName    String?
   username    String?
+  lastStartedAt DateTime?
   
   orders      Order[]
   accesses    Access[]
@@ -139,7 +146,9 @@ model Order {
   botId          String
   bot            Bot          @relation(fields: [botId], references: [id], onDelete: Cascade)
   productId      String
-  product        Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  product        Product      @relation("BaseOrderProduct", fields: [productId], references: [id], onDelete: Restrict)
+  bumpProductId  String?
+  bumpProduct    Product?     @relation("BumpOrderProduct", fields: [bumpProductId], references: [id], onDelete: SetNull)
   telegramUserId String
   telegramUser   TelegramUser @relation(fields: [telegramUserId, botId], references: [id, botId], onDelete: Restrict)
   

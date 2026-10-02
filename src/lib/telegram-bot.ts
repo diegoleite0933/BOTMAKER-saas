@@ -2,6 +2,8 @@ import { Telegraf } from "telegraf";
 import { PrismaClient, Bot } from "@prisma/client";
 import { generatePixQr } from "@/lib/pix-code";
 import { createMercadoPagoPix, createAmploPayPix } from "@/lib/payment-gateways";
+import { registerPurchaseActions } from "@/lib/telegram-purchase.js";
+import { deliverPaidOrder } from "@/lib/product-delivery.js";
 
 const prisma = new PrismaClient();
 const botInstances = new Map<string, Telegraf>();
@@ -12,11 +14,29 @@ export function getBot(botRecord: Bot): Telegraf {
   }
 
   const bot = new Telegraf(botRecord.token);
+  registerPurchaseActions(bot, botRecord, prisma);
 
   // Comando /start
   bot.start(async (ctx) => {
     try {
       const currentBot = await prisma.bot.findUnique({ where: { id: botRecord.id } });
+      await prisma.telegramUser.upsert({
+        where: { id_botId: { id: ctx.from.id.toString(), botId: botRecord.id } },
+        update: {
+          firstName: ctx.from.first_name,
+          lastName: ctx.from.last_name,
+          username: ctx.from.username,
+          lastStartedAt: new Date(),
+        },
+        create: {
+          id: ctx.from.id.toString(),
+          botId: botRecord.id,
+          firstName: ctx.from.first_name,
+          lastName: ctx.from.last_name,
+          username: ctx.from.username,
+          lastStartedAt: new Date(),
+        },
+      });
       const savedWelcomeMedia = await prisma.welcomeMedia.findMany({
         where: { botId: botRecord.id },
         orderBy: { position: "asc" },
@@ -31,7 +51,7 @@ export function getBot(botRecord: Bot): Telegraf {
 
       const message = currentBot?.welcomeMessage || `Bem-vindo à loja! Escolha um produto abaixo para comprar via Pix:`;
       const buttons = products.map(p => {
-        return [{ text: `${p.name} - R$ ${p.price.toFixed(2)}`, callback_data: `buy_${p.id}` }];
+        return [{ text: `${p.name} - R$ ${p.price.toFixed(2)}`, callback_data: `detail_${p.id}` }];
       });
 
       const welcomeMedia = savedWelcomeMedia.length > 0
@@ -68,7 +88,7 @@ export function getBot(botRecord: Bot): Telegraf {
   });
 
   // Ação de Compra
-  bot.action(/^buy_(.+)$/, async (ctx) => {
+  bot.action(/^legacy_buy_(.+)$/, async (ctx) => {
     const productId = ctx.match[1];
     try {
       const product = await prisma.product.findUnique({ 
@@ -262,7 +282,11 @@ export function getBot(botRecord: Bot): Telegraf {
     try {
       const order = await prisma.order.findUnique({
         where: { id: ctx.match[2] },
-        include: { bot: true, product: { include: { deliveries: true } } },
+        include: {
+          bot: true,
+          product: { include: { deliveries: true } },
+          bumpProduct: { include: { deliveries: true } },
+        },
       });
       const chatId = String(ctx.chat?.id || "");
 
@@ -292,50 +316,13 @@ export function getBot(botRecord: Bot): Telegraf {
         return;
       }
 
-      const delivery = order.product.deliveries[0];
-      if (!delivery) return ctx.answerCbQuery("Este produto não tem entrega configurada.", { show_alert: true });
-
-      let inviteLink: string | null = null;
-      if ((delivery.type === "group" || delivery.type === "channel") && delivery.telegramChatId) {
-        const invite = await ctx.telegram.createChatInviteLink(delivery.telegramChatId, {
-          member_limit: 1,
-          expire_date: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
-          name: `Pedido ${order.id}`,
-        });
-        inviteLink = invite.invite_link;
-      } else if (!delivery.content) {
-        return ctx.answerCbQuery("Este produto não tem dados de entrega configurados.", { show_alert: true });
-      }
-
       try {
-        const approved = await prisma.$transaction(async (transaction) => {
-          const result = await transaction.order.updateMany({
-            where: { id: order.id, status: "review" },
-            data: { status: "paid" },
-          });
-          if (!result.count) return false;
-
-          await transaction.access.create({
-            data: {
-              telegramUserId: order.telegramUserId,
-              botId: order.botId,
-              deliveryId: delivery.id,
-              inviteLink,
-              status: "active",
-              expiresAt: delivery.durationDays ? new Date(Date.now() + delivery.durationDays * 86400000) : null,
-            },
-          });
-          return true;
-        });
+        const approved = await deliverPaidOrder({ prisma, bot, order });
         if (!approved) return ctx.answerCbQuery("Este comprovante já foi processado.", { show_alert: true });
       } catch (error) {
-        if (inviteLink && delivery.telegramChatId) {
-          await ctx.telegram.revokeChatInviteLink(delivery.telegramChatId, inviteLink).catch(() => undefined);
-        }
         throw error;
       }
 
-      await ctx.telegram.sendMessage(order.telegramUserId, `✅ Pagamento aprovado.\n${inviteLink || delivery.content}`);
       await ctx.answerCbQuery("Pagamento aprovado e acesso enviado.");
       await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
     } catch (error) {

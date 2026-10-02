@@ -32,6 +32,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const price = Number(body.price);
     const botId = typeof body.botId === "string" ? body.botId : "";
     const status = body.status;
+    const orderBumpProductId = typeof body.orderBumpProductId === "string" && body.orderBumpProductId ? body.orderBumpProductId : null;
+    const telegramMediaId = typeof body.telegramMediaId === "string" && body.telegramMediaId ? body.telegramMediaId : null;
+    const telegramMediaType = body.telegramMediaType === "photo" || body.telegramMediaType === "video" ? body.telegramMediaType : null;
     const deliveryType = body.deliveryType;
     const telegramChatId = typeof body.telegramChatId === "string" ? body.telegramChatId.trim() : "";
     const content = typeof body.content === "string" ? body.content.trim() : "";
@@ -52,6 +55,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (durationDays !== null && (!Number.isInteger(durationDays) || durationDays < 1)) {
       return NextResponse.json({ message: "A duração deve ser um número inteiro positivo." }, { status: 400 });
     }
+    if (telegramMediaId && !telegramMediaType) {
+      return NextResponse.json({ message: "Tipo de mídia inválido." }, { status: 400 });
+    }
 
     const bot = await prisma.bot.findFirst({
       where: { id: botId, workspaceId: workspace.id },
@@ -59,10 +65,32 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     });
     if (!bot) return NextResponse.json({ message: "Bot não encontrado" }, { status: 404 });
 
+    if (orderBumpProductId) {
+      if (orderBumpProductId === product.id) {
+        return NextResponse.json({ message: "Um produto não pode oferecer a si mesmo como order bump." }, { status: 400 });
+      }
+      const bumpProduct = await prisma.product.findFirst({
+        where: { id: orderBumpProductId, botId, status: "active" },
+        select: { id: true },
+      });
+      if (!bumpProduct) {
+        return NextResponse.json({ message: "Selecione um produto ativo do mesmo bot para o order bump." }, { status: 400 });
+      }
+    }
+
     await prisma.$transaction(async (transaction) => {
       await transaction.product.update({
         where: { id: product.id },
-        data: { name, description: description || null, price, botId, status },
+        data: {
+          name,
+          description: description || null,
+          price,
+          botId,
+          status,
+          orderBumpProductId,
+          telegramMediaId,
+          telegramMediaType: telegramMediaId ? telegramMediaType : null,
+        },
       });
 
       const deliveryData = {

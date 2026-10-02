@@ -1,16 +1,19 @@
 require("dotenv").config();
 const { Telegraf } = require("telegraf");
 const { PrismaClient } = require("@prisma/client");
+const { registerPurchaseActions } = require("./src/lib/telegram-purchase.js");
+const { deliverPaidOrder } = require("./src/lib/product-delivery.js");
 const prisma = new PrismaClient();
 
 const runningBots = new Map();
 
-async function handlePixReview(ctx, action, orderId) {
+async function handlePixReview(ctx, action, orderId, bot) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {
       bot: true,
       product: { include: { deliveries: true } },
+      bumpProduct: { include: { deliveries: true } },
     },
   });
 
@@ -41,54 +44,8 @@ async function handlePixReview(ctx, action, orderId) {
     return;
   }
 
-  const delivery = order.product.deliveries[0];
-  if (!delivery) return ctx.answerCbQuery("Este produto não tem entrega configurada.", { show_alert: true });
-
-  let inviteLink = null;
-  if ((delivery.type === "group" || delivery.type === "channel") && delivery.telegramChatId) {
-    const invite = await ctx.telegram.createChatInviteLink(delivery.telegramChatId, {
-      member_limit: 1,
-      expire_date: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
-      name: `Pedido ${order.id}`,
-    });
-    inviteLink = invite.invite_link;
-  } else if (!delivery.content) {
-    return ctx.answerCbQuery("Este produto não tem dados de entrega configurados.", { show_alert: true });
-  }
-
-  try {
-    const approved = await prisma.$transaction(async (transaction) => {
-      const result = await transaction.order.updateMany({
-        where: { id: order.id, status: "review" },
-        data: { status: "paid" },
-      });
-      if (!result.count) return false;
-
-      await transaction.access.create({
-        data: {
-          telegramUserId: order.telegramUserId,
-          botId: order.botId,
-          deliveryId: delivery.id,
-          inviteLink,
-          status: "active",
-          expiresAt: delivery.durationDays ? new Date(Date.now() + delivery.durationDays * 86400000) : null,
-        },
-      });
-      return true;
-    });
-
-    if (!approved) return ctx.answerCbQuery("Este comprovante já foi processado.", { show_alert: true });
-  } catch (error) {
-    if (inviteLink && delivery.telegramChatId) {
-      await ctx.telegram.revokeChatInviteLink(delivery.telegramChatId, inviteLink).catch(() => undefined);
-    }
-    throw error;
-  }
-
-  const deliveryMessage = inviteLink
-    ? `Aqui está seu link de acesso: ${inviteLink}`
-    : delivery.content;
-  await ctx.telegram.sendMessage(order.telegramUserId, `✅ Pagamento aprovado.\n${deliveryMessage}`);
+  const approved = await deliverPaidOrder({ prisma, bot, order });
+  if (!approved) return ctx.answerCbQuery("Este comprovante já foi processado.", { show_alert: true });
   await ctx.answerCbQuery("Pagamento aprovado e acesso enviado.");
   await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
 }
@@ -103,26 +60,27 @@ async function processRemarketing(botRecord, bot) {
 
     const delayMinutes = campaign.delayDays ? campaign.delayDays * 1440 : campaign.delayMinutes;
     const cutoff = new Date(Date.now() - delayMinutes * 60000);
-    const latestPaidOrders = await prisma.order.findMany({
-      where: { botId: botRecord.id, status: "paid" },
-      select: { telegramUserId: true, updatedAt: true },
-      orderBy: { updatedAt: "desc" },
-      distinct: ["telegramUserId"],
+    const customers = await prisma.telegramUser.findMany({
+      where: {
+        botId: botRecord.id,
+        lastStartedAt: { lte: cutoff },
+        orders: { none: { status: "paid" } },
+      },
+      select: { id: true },
     });
-    const customers = latestPaidOrders.filter((order) => order.updatedAt <= cutoff);
 
     for (const customer of customers) {
       const existing = await prisma.remarketingSend.findUnique({
         where: {
           remarketingId_telegramUserId: {
             remarketingId: campaign.id,
-            telegramUserId: customer.telegramUserId,
+            telegramUserId: customer.id,
           },
         },
       });
       const staleSendingBefore = new Date(Date.now() - 15 * 60 * 1000);
 
-      if (existing?.status === "sent") continue;
+      if (existing?.status === "sent" || existing?.status === "skipped") continue;
       if (existing?.status === "sending" && existing.updatedAt > staleSendingBefore) continue;
 
       if (existing) {
@@ -136,7 +94,7 @@ async function processRemarketing(botRecord, bot) {
             data: {
               remarketingId: campaign.id,
               botId: botRecord.id,
-              telegramUserId: customer.telegramUserId,
+              telegramUserId: customer.id,
               status: "sending",
             },
           });
@@ -147,25 +105,37 @@ async function processRemarketing(botRecord, bot) {
       }
 
       try {
+        const paidAfterStart = await prisma.order.findFirst({
+          where: { botId: botRecord.id, telegramUserId: customer.id, status: "paid" },
+          select: { id: true },
+        });
+        if (paidAfterStart) {
+          await prisma.remarketingSend.updateMany({
+            where: { remarketingId: campaign.id, telegramUserId: customer.id },
+            data: { status: "skipped", failureReason: "Cliente já realizou uma compra." },
+          });
+          continue;
+        }
+
         if (campaign.mediaFileId && campaign.mediaType === "photo") {
-          await bot.telegram.sendPhoto(customer.telegramUserId, campaign.mediaFileId, {
+          await bot.telegram.sendPhoto(customer.id, campaign.mediaFileId, {
             ...(campaign.message ? { caption: campaign.message } : {}),
           });
         } else if (campaign.mediaFileId && campaign.mediaType === "video") {
-          await bot.telegram.sendVideo(customer.telegramUserId, campaign.mediaFileId, {
+          await bot.telegram.sendVideo(customer.id, campaign.mediaFileId, {
             ...(campaign.message ? { caption: campaign.message } : {}),
           });
         } else if (campaign.message) {
-          await bot.telegram.sendMessage(customer.telegramUserId, campaign.message);
+          await bot.telegram.sendMessage(customer.id, campaign.message);
         }
 
         await prisma.remarketingSend.updateMany({
-          where: { remarketingId: campaign.id, telegramUserId: customer.telegramUserId },
+          where: { remarketingId: campaign.id, telegramUserId: customer.id },
           data: { status: "sent", sentAt: new Date(), failureReason: null },
         });
       } catch (error) {
         await prisma.remarketingSend.updateMany({
-          where: { remarketingId: campaign.id, telegramUserId: customer.telegramUserId },
+          where: { remarketingId: campaign.id, telegramUserId: customer.id },
           data: {
             status: "failed",
             failureReason: error instanceof Error ? error.message.slice(0, 500) : "Falha ao enviar mensagem.",
@@ -188,6 +158,23 @@ async function startBot(botRecord) {
     try {
       // Buscar bot atualizado
       const currentBot = await prisma.bot.findUnique({ where: { id: botRecord.id } });
+      await prisma.telegramUser.upsert({
+        where: { id_botId: { id: ctx.from.id.toString(), botId: botRecord.id } },
+        update: {
+          firstName: ctx.from.first_name,
+          lastName: ctx.from.last_name,
+          username: ctx.from.username,
+          lastStartedAt: new Date(),
+        },
+        create: {
+          id: ctx.from.id.toString(),
+          botId: botRecord.id,
+          firstName: ctx.from.first_name,
+          lastName: ctx.from.last_name,
+          username: ctx.from.username,
+          lastStartedAt: new Date(),
+        },
+      });
       const savedWelcomeMedia = await prisma.welcomeMedia.findMany({
         where: { botId: botRecord.id },
         orderBy: { position: "asc" },
@@ -205,7 +192,7 @@ async function startBot(botRecord) {
       const message = currentBot?.welcomeMessage || `Bem-vindo à loja! Escolha um produto abaixo para comprar via Pix:`;
       
       const buttons = products.map(p => {
-        return [{ text: `${p.name} - R$ ${p.price.toFixed(2)}`, callback_data: `buy_${p.id}` }];
+        return [{ text: `${p.name} - R$ ${p.price.toFixed(2)}`, callback_data: `detail_${p.id}` }];
       });
 
       const welcomeMedia = savedWelcomeMedia.length > 0
@@ -241,7 +228,7 @@ async function startBot(botRecord) {
     }
   });
 
-  bot.action(/^buy_(.+)$/, async (ctx) => {
+  bot.action(/^legacy_buy_(.+)$/, async (ctx) => {
     const productId = ctx.match[1];
     
     try {
@@ -531,7 +518,7 @@ async function startBot(botRecord) {
 
     bot.action(/^pix_review_(approve|reject)_(.+)$/, async (ctx) => {
       try {
-        await handlePixReview(ctx, ctx.match[1], ctx.match[2]);
+        await handlePixReview(ctx, ctx.match[1], ctx.match[2], bot);
       } catch (error) {
         console.error("Erro ao revisar comprovante Pix:", error);
         await ctx.answerCbQuery("Não foi possível processar a revisão.", { show_alert: true });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { ChevronDown, Plus, Save, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -122,7 +123,7 @@ export function RemarketingManager({ botId, initialCampaigns }: { botId: string;
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-blue-700">Relacionamento</p>
           <h2 className="mt-1 text-xl font-semibold text-slate-950">Remarketing</h2>
-          <p className="mt-1 max-w-2xl text-sm text-slate-600">Configure mensagens para serem enviadas após o intervalo escolhido desde o pagamento mais recente. Cada etapa é enviada uma vez por cliente.</p>
+          <p className="mt-1 max-w-2xl text-sm text-slate-600">Envie mensagens após o início do bot. O remarketing é interrompido quando o cliente paga, e cada etapa é enviada uma vez.</p>
         </div>
         <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
           <span className="text-sm text-slate-500">{campaigns.length}/10 etapas</span>
@@ -167,7 +168,7 @@ export function RemarketingManager({ botId, initialCampaigns }: { botId: string;
                     <Input id={`campaign-name-${campaign.id}`} value={campaign.name} maxLength={80} onChange={(event) => updateCampaign(campaign.id, { name: event.target.value })} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor={`campaign-delay-${campaign.id}`}>Enviar quantos minutos após o pagamento?</Label>
+                    <Label htmlFor={`campaign-delay-${campaign.id}`}>Enviar quantos minutos após iniciar o bot?</Label>
                     <Input id={`campaign-delay-${campaign.id}`} type="number" min={1} max={525600} step={1} value={campaign.delayMinutes} onChange={(event) => updateCampaign(campaign.id, { delayMinutes: Number(event.target.value) })} />
                   </div>
                 </div>
@@ -194,6 +195,26 @@ export function RemarketingManager({ botId, initialCampaigns }: { botId: string;
                     Campanha ativa
                   </label>
                 </div>
+
+                {campaign.mediaFileId && campaign.mediaType && (
+                  <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-start">
+                    {campaign.mediaType === "video" ? (
+                      <video controls playsInline className="max-h-64 w-full rounded-md bg-black sm:max-w-sm" src={`/api/bots/media/${botId}?fileId=${encodeURIComponent(campaign.mediaFileId)}`} />
+                    ) : (
+                      <Image unoptimized width={480} height={320} alt={`Mídia de ${campaign.name}`} className="max-h-64 w-full rounded-md object-contain sm:max-w-sm" src={`/api/bots/media/${botId}?fileId=${encodeURIComponent(campaign.mediaFileId)}`} />
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label={`Remover mídia de ${campaign.name}`}
+                      title="Remover mídia"
+                      onClick={() => updateCampaign(campaign.id, { mediaFileId: null, mediaType: null })}
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
+                  </div>
+                )}
 
                 <div className="flex justify-end border-t border-slate-100 pt-4">
                   <Button type="button" onClick={() => saveCampaign(campaign)} disabled={busyId === campaign.id} className="gap-2 bg-blue-700 text-white hover:bg-blue-800">

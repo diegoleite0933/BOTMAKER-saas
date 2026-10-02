@@ -14,6 +14,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type SalesPoint = { label: string; paid: number; pending: number };
+type BotSales = { botId: string; name: string; total: number };
 type Period = "24h" | 7 | 15 | 30 | 365;
 
 const periods: { value: Period; label: string }[] = [
@@ -28,7 +29,7 @@ const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "
 
 export function SalesChart() {
   const [period, setPeriod] = useState<Period>(7);
-  const [result, setResult] = useState<{ period: Period; data: SalesPoint[]; error: string } | null>(null);
+  const [result, setResult] = useState<{ period: Period; data: SalesPoint[]; ranking: BotSales[]; error: string } | null>(null);
   const loading = result?.period !== period;
   const data = loading ? [] : result.data;
   const error = loading ? "" : result.error;
@@ -40,11 +41,11 @@ export function SalesChart() {
       .then(async (response) => {
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || "Não foi possível carregar as vendas.");
-        setResult({ period, data: result.data, error: "" });
+        setResult({ period, data: result.data, ranking: result.ranking || [], error: "" });
       })
       .catch((loadError) => {
         if (loadError.name !== "AbortError") {
-          setResult({ period, data: [], error: loadError.message || "Erro ao carregar o gráfico." });
+          setResult({ period, data: [], ranking: [], error: loadError.message || "Erro ao carregar o gráfico." });
         }
       });
 
@@ -106,6 +107,24 @@ export function SalesChart() {
               </LineChart>
             </ResponsiveContainer>
           </div>
+        )}
+        {!loading && !error && (
+          <section className="mt-5 border-t border-blue-800 pt-4" aria-label="Ranking de vendas por bot no período">
+            <h3 className="mb-3 text-sm font-semibold text-blue-100">Vendas por bot no período</h3>
+            {result.ranking.length === 0 ? (
+              <p className="text-sm text-blue-100/80">Nenhum bot cadastrado.</p>
+            ) : (
+              <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {result.ranking.map((bot, index) => (
+                  <li key={bot.botId} className="flex min-w-0 items-center gap-3 rounded-md border border-blue-800 bg-blue-900/50 px-3 py-2.5 text-white">
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-blue-700 text-xs font-bold">{index + 1}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{bot.name}</span>
+                    <span className="shrink-0 text-sm font-semibold">{currency.format(bot.total)}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
         )}
       </CardContent>
     </Card>

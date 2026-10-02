@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { Telegraf } from "telegraf";
+import { deliverPaidOrder } from "@/lib/product-delivery.js";
 
 const prisma = new PrismaClient();
 
@@ -25,49 +26,17 @@ export async function POST(req: Request) {
     if (status === "COMPLETED") {
       // Procurar o pedido
       const order = await prisma.order.findUnique({
-        where: { id: identifier }
+        where: { id: identifier },
+        include: {
+          bot: true,
+          product: { include: { deliveries: true } },
+          bumpProduct: { include: { deliveries: true } },
+        },
       });
 
       if (order && order.status !== "paid") {
-        // Atualiza para pago
-        await prisma.order.update({
-          where: { id: identifier },
-          data: { status: "paid" }
-        });
-
-        // Buscar o produto e as configurações de entrega
-        const product = await prisma.product.findUnique({
-          where: { id: order.productId },
-          include: { deliveries: true }
-        });
-
-        const botRecord = await prisma.bot.findUnique({
-          where: { id: order.botId }
-        });
-
-        if (product && botRecord) {
-          const bot = new Telegraf(botRecord.token);
-          
-          // Entregar o acesso
-          const delivery = product.deliveries[0];
-          if (delivery && delivery.type === 'group' && delivery.telegramChatId) {
-            try {
-              const inviteLink = await bot.telegram.createChatInviteLink(delivery.telegramChatId, {
-                member_limit: 1, 
-                expire_date: Math.floor(Date.now() / 1000) + (60 * 60 * 24),
-                name: `Acesso via Amplo Pay`
-              });
-
-              await bot.telegram.sendMessage(
-                order.telegramUserId, 
-                `🎉 *Pagamento Aprovado!*\n\nAqui está o seu acesso exclusivo:\n\n${inviteLink.invite_link}\n\nEste link só pode ser usado 1 vez.`,
-                { parse_mode: 'Markdown' }
-              );
-            } catch (err) {
-              console.error("Erro na entrega via webhook:", err);
-            }
-          }
-        }
+        const bot = new Telegraf(order.bot.token);
+        await deliverPaidOrder({ prisma, bot, order });
       }
     }
 

@@ -47,16 +47,23 @@ export async function GET(request: Request) {
         return saoPauloDayStart(firstDateKey);
       })();
 
-  const orders = await prisma.order.findMany({
-    where: {
-      bot: { workspace: { userId } },
-      createdAt: { gte: start, lte: now },
-      status: { in: ["paid", "pending", "review"] },
-    },
-    select: { amount: true, status: true, createdAt: true },
-  });
+  const [orders, bots] = await Promise.all([
+    prisma.order.findMany({
+      where: {
+        bot: { workspace: { userId } },
+        createdAt: { gte: start, lte: now },
+        status: { in: ["paid", "pending", "review"] },
+      },
+      select: { amount: true, status: true, createdAt: true, botId: true },
+    }),
+    prisma.bot.findMany({
+      where: { workspace: { userId } },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   const points = new Map<string, { label: string; paid: number; pending: number }>();
+  const botTotals = new Map(bots.map((bot) => [bot.id, { botId: bot.id, name: bot.name, total: 0 }]));
   if (hourly) {
     const lastHour = Math.floor(now.getTime() / hourInMilliseconds) * hourInMilliseconds;
     for (let offset = 23; offset >= 0; offset -= 1) {
@@ -83,10 +90,16 @@ export async function GET(request: Request) {
       : saoPauloDateKey(order.createdAt);
     const point = points.get(key);
     if (!point) continue;
-    if (order.status === "paid") point.paid += order.amount;
-    else point.pending += order.amount;
+    if (order.status === "paid") {
+      point.paid += order.amount;
+      const botTotal = botTotals.get(order.botId);
+      if (botTotal) botTotal.total += order.amount;
+    } else {
+      point.pending += order.amount;
+    }
   }
 
   const data = Array.from(points.values());
-  return NextResponse.json({ range: hourly ? "24h" : `${days}d`, data });
+  const ranking = Array.from(botTotals.values()).sort((left, right) => right.total - left.total || left.name.localeCompare(right.name));
+  return NextResponse.json({ range: hourly ? "24h" : `${days}d`, data, ranking });
 }

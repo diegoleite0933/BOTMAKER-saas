@@ -18,7 +18,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
 
   if (!workspace) notFound();
 
-  const [product, bots] = await Promise.all([
+  const [product, bots, availableBumps] = await Promise.all([
     prisma.product.findFirst({
       where: { id, bot: { workspaceId: workspace.id } },
       include: { deliveries: { take: 1 } },
@@ -26,6 +26,11 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     prisma.bot.findMany({
       where: { workspaceId: workspace.id },
       select: { id: true, name: true, username: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.product.findMany({
+      where: { id: { not: id }, status: "active", bot: { workspaceId: workspace.id } },
+      select: { id: true, botId: true, name: true, price: true },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -43,7 +48,11 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         status: product.status,
         botId: product.botId,
         delivery: product.deliveries[0] || null,
+        orderBumpProductId: product.orderBumpProductId,
+        telegramMediaId: product.telegramMediaId,
+        telegramMediaType: product.telegramMediaType,
       }}
+        availableBumps={availableBumps}
     />
   );
 }

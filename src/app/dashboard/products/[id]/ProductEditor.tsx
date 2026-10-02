@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { ArrowLeft, Save } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-type BotOption = { id: string; name: string; username: string };
+type BotOption = { id: string; name: string; username: string | null };
+type BumpOption = { id: string; botId: string; name: string; price: number };
 type Delivery = {
   type: string;
   telegramChatId: string | null;
@@ -20,9 +22,11 @@ type Delivery = {
 
 export function ProductEditor({
   bots,
+  availableBumps,
   product,
 }: {
   bots: BotOption[];
+  availableBumps: BumpOption[];
   product: {
     id: string;
     name: string;
@@ -31,6 +35,9 @@ export function ProductEditor({
     status: string;
     botId: string;
     delivery: Delivery;
+    orderBumpProductId: string | null;
+    telegramMediaId: string | null;
+    telegramMediaType: string | null;
   };
 }) {
   const router = useRouter();
@@ -39,6 +46,10 @@ export function ProductEditor({
   const [price, setPrice] = useState(String(product.price));
   const [botId, setBotId] = useState(product.botId);
   const [status, setStatus] = useState(product.status);
+  const [orderBumpProductId, setOrderBumpProductId] = useState(product.orderBumpProductId || "");
+  const [telegramMediaId, setTelegramMediaId] = useState(product.telegramMediaId);
+  const [telegramMediaType, setTelegramMediaType] = useState(product.telegramMediaType);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
   const [deliveryType, setDeliveryType] = useState(product.delivery?.type || "group");
   const [telegramChatId, setTelegramChatId] = useState(product.delivery?.telegramChatId || "");
   const [content, setContent] = useState(product.delivery?.content || "");
@@ -61,6 +72,9 @@ export function ProductEditor({
           price: Number(price),
           botId,
           status,
+          orderBumpProductId,
+          telegramMediaId,
+          telegramMediaType,
           deliveryType,
           telegramChatId,
           content,
@@ -78,6 +92,26 @@ export function ProductEditor({
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Erro ao salvar o produto.");
       setLoading(false);
+    }
+  }
+
+  async function uploadProductMedia(file?: File) {
+    if (!file) return;
+    setUploadingMedia(true);
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.set("botId", botId);
+      formData.set("file", file);
+      const response = await fetch("/api/products/media", { method: "POST", body: formData });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Não foi possível enviar a mídia.");
+      setTelegramMediaId(result.mediaId);
+      setTelegramMediaType(result.mediaType);
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Erro ao enviar a mídia.");
+    } finally {
+      setUploadingMedia(false);
     }
   }
 
@@ -120,8 +154,13 @@ export function ProductEditor({
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="product-bot">Bot responsável</Label>
-                <select id="product-bot" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={botId} onChange={(event) => setBotId(event.target.value)} required>
-                  {bots.map((bot) => <option key={bot.id} value={bot.id}>{bot.name} (@{bot.username})</option>)}
+                <select id="product-bot" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={botId} onChange={(event) => {
+                  setBotId(event.target.value);
+                  setOrderBumpProductId("");
+                  setTelegramMediaId(null);
+                  setTelegramMediaType(null);
+                }} required>
+                  {bots.map((bot) => <option key={bot.id} value={bot.id}>{bot.name}{bot.username ? ` (@${bot.username})` : ""}</option>)}
                 </select>
               </div>
               <div className="space-y-2">
@@ -132,6 +171,60 @@ export function ProductEditor({
                 </select>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="border-b border-slate-100">
+            <CardTitle>Order bump</CardTitle>
+            <CardDescription>Ofereça outro produto depois que o cliente confirmar a compra principal.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 pt-5">
+            <Label htmlFor="order-bump">Produto adicional</Label>
+            <select
+              id="order-bump"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={orderBumpProductId}
+              onChange={(event) => setOrderBumpProductId(event.target.value)}
+            >
+              <option value="">Sem order bump</option>
+              {availableBumps.filter((candidate) => candidate.botId === botId).map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.name} · {candidate.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-500">O valor só é somado se o cliente aceitar. Os dois conteúdos são entregues após o pagamento.</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="border-b border-slate-100">
+            <CardTitle>Mídia da oferta</CardTitle>
+            <CardDescription>Imagem ou vídeo exibido junto aos detalhes do produto e do order bump.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-5">
+            <Input
+              aria-label="Enviar mídia do produto"
+              type="file"
+              accept="image/*,video/mp4"
+              onChange={(event) => {
+                void uploadProductMedia(event.target.files?.[0]);
+                event.target.value = "";
+              }}
+              disabled={uploadingMedia}
+            />
+            {uploadingMedia && <p role="status" className="text-sm text-slate-500">Enviando mídia para o Telegram...</p>}
+            {telegramMediaId && telegramMediaType && (
+              <div className="space-y-3">
+                {telegramMediaType === "video" ? (
+                  <video controls playsInline className="max-h-72 w-full rounded-md bg-black" src={`/api/bots/media/${botId}?fileId=${encodeURIComponent(telegramMediaId)}`} />
+                ) : (
+                  <Image unoptimized width={640} height={420} alt={`Mídia de ${name}`} className="max-h-72 w-auto rounded-md object-contain" src={`/api/bots/media/${botId}?fileId=${encodeURIComponent(telegramMediaId)}`} />
+                )}
+                <Button type="button" variant="outline" onClick={() => { setTelegramMediaId(null); setTelegramMediaType(null); }}>Remover mídia</Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -45,9 +45,9 @@ export default async function DashboardPage() {
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Visão Geral</h1>
         </div>
         <section className="min-w-0 rounded-lg border border-blue-800 bg-blue-950 px-5 py-4 text-center text-white sm:min-w-64" aria-label="Resumo de vendas da conta">
-          <p className="truncate text-sm font-semibold text-blue-100">{nickname}</p>
+          <p className="truncate text-lg font-semibold text-blue-100">{nickname}</p>
           <p className="mt-1 text-xs text-white/80">Total vendido</p>
-          <p className="mt-0.5 text-2xl font-bold">{formatCurrency(lifetimeSales._sum.amount || 0)}</p>
+          <p className="mt-0.5 text-3xl font-bold">{formatCurrency(lifetimeSales._sum.amount || 0)}</p>
         </section>
         <Link href="/dashboard/bots/new" className={buttonVariants({ className: "w-full bg-blue-600 text-white hover:bg-blue-700 sm:w-auto sm:justify-self-end" })}>+ Novo Bot</Link>
       </div>
