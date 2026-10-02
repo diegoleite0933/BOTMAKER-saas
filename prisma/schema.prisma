@@ -14,7 +14,7 @@ datasource db {
 model User {
   id            String      @id @default(cuid())
   name          String?
-  nickname      String?     @unique
+  nickname      String?
   email         String?     @unique
   password      String?     // Bcrypt hash
   cpf           String?
@@ -24,6 +24,7 @@ model User {
 
   workspaces    Workspace[]
 
+  @@index([nickname])
   @@index([cpf])
 }
 

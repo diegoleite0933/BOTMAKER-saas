@@ -1,7 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import { isAdminEmail, normalizeCpf, normalizeNickname } from "@/lib/account-security";
 
@@ -60,17 +60,18 @@ export const authOptions: NextAuthOptions = {
         }
 
         if (!user.nickname) {
-          const nicknameOwner = await prisma.user.findFirst({
-            where: {
-              id: { not: user.id },
-              nickname: { equals: nickname, mode: "insensitive" },
-            },
-            select: { id: true },
-          });
-          if (nicknameOwner) throw new Error("Apelido já está em uso");
-
           try {
-            await prisma.user.update({ where: { id: user.id }, data: { nickname } });
+            await prisma.$transaction(async (transaction) => {
+              const nicknameOwner = await transaction.user.findFirst({
+                where: {
+                  id: { not: user.id },
+                  nickname: { equals: nickname, mode: "insensitive" },
+                },
+                select: { id: true },
+              });
+              if (nicknameOwner) throw new Error("Apelido já está em uso");
+              await transaction.user.update({ where: { id: user.id }, data: { nickname } });
+            }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
           } catch {
             throw new Error("Não foi possível salvar esse apelido. Tente outro.");
           }
