@@ -61,7 +61,10 @@ export function SalesChart() {
             aria-label="Filtrar vendas por período"
             className="h-10 min-w-0 w-full max-w-52 flex-1 rounded-md border border-blue-700 bg-blue-900 px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 sm:w-auto sm:flex-none"
             value={period}
-            onChange={(event) => setPeriod(Number(event.target.value) as Period)}
+            onChange={(event) => {
+              const value = event.target.value;
+              setPeriod(value === "24h" ? "24h" : Number(value) as Exclude<Period, "24h">);
+            }}
           >
             {periods.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
