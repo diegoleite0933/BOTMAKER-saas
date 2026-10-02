@@ -590,8 +590,21 @@ async function startBot(botRecord) {
     }
   });
 
-  bot.launch();
   runningBots.set(botRecord.id, bot);
+
+  const launchBot = () => {
+    bot.launch().catch((error) => {
+      const isPollingConflict = error?.response?.error_code === 409;
+      console.error(
+        `[Bot Runner] Falha ao iniciar @${botRecord.username}; nova tentativa em breve:`,
+        error,
+      );
+      const retryTimer = setTimeout(launchBot, isPollingConflict ? 15000 : 30000);
+      retryTimer.unref();
+    });
+  };
+
+  launchBot();
 }
 
 async function main() {
