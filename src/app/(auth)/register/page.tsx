@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 export default function RegisterPage() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
   const [cpf, setCpf] = useState("");
   const [password, setPassword] = useState("");
@@ -28,7 +29,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, cpf, password }),
+        body: JSON.stringify({ name, nickname, email, cpf, password }),
       });
 
       const data = await res.json();
@@ -66,6 +67,21 @@ export default function RegisterPage() {
               onChange={(e) => setName(e.target.value)}
               required
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="nickname">Apelido de acesso</Label>
+            <Input
+              id="nickname"
+              type="text"
+              autoComplete="nickname"
+              minLength={3}
+              maxLength={24}
+              placeholder="Ex.: diego_bot"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              required
+            />
+            <p className="text-xs text-slate-500">3 a 24 caracteres: letras, números, ponto, hífen ou _.</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>

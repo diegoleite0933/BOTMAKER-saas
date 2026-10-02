@@ -8,7 +8,8 @@ const maxCampaignsPerBot = 10;
 type CampaignData = {
   name: string;
   message: string | null;
-  delayDays: number;
+  delayDays: null;
+  delayMinutes: number;
   mediaFileId: string | null;
   mediaType: "photo" | "video" | null;
   isActive: boolean;
@@ -25,20 +26,20 @@ async function getOwnedBot(botId: unknown, userId: string) {
 function parseCampaign(body: Record<string, unknown>): { ok: true; value: CampaignData } | { ok: false; message: string } {
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const message = typeof body.message === "string" ? body.message.trim() : "";
-  const delayDays = Number(body.delayDays);
+  const delayMinutes = Number(body.delayMinutes);
   const mediaFileId = typeof body.mediaFileId === "string" ? body.mediaFileId : "";
   const mediaType = body.mediaType === "photo" || body.mediaType === "video" ? body.mediaType : null;
   const isActive = body.isActive === true;
 
   if (!name || name.length > 80) return { ok: false, message: "Dê um nome à campanha (até 80 caracteres)." };
-  if (!Number.isInteger(delayDays) || delayDays < 1 || delayDays > 365) {
-    return { ok: false, message: "O intervalo deve ser de 1 a 365 dias após o pagamento." };
+  if (!Number.isInteger(delayMinutes) || delayMinutes < 1 || delayMinutes > 525600) {
+    return { ok: false, message: "O intervalo deve ser de 1 minuto a 365 dias após o pagamento." };
   }
   if (message.length > 1000) return { ok: false, message: "A mensagem pode ter no máximo 1000 caracteres." };
   if (mediaFileId && !mediaType) return { ok: false, message: "Tipo de mídia inválido." };
   if (isActive && !message && !mediaFileId) return { ok: false, message: "Adicione uma mensagem ou mídia antes de ativar." };
 
-  return { ok: true, value: { name, message: message || null, delayDays, mediaFileId: mediaFileId || null, mediaType, isActive } };
+  return { ok: true, value: { name, message: message || null, delayDays: null, delayMinutes, mediaFileId: mediaFileId || null, mediaType, isActive } };
 }
 
 export async function GET(request: Request) {
@@ -54,7 +55,13 @@ export async function GET(request: Request) {
     where: { botId: bot.id },
     orderBy: { createdAt: "asc" },
   });
-  return NextResponse.json({ campaigns });
+  return NextResponse.json({
+    campaigns: campaigns.map((campaign) => ({
+      ...campaign,
+      delayMinutes: campaign.delayDays ? campaign.delayDays * 1440 : campaign.delayMinutes,
+      delayDays: null,
+    })),
+  });
 }
 
 export async function POST(request: Request) {
@@ -74,7 +81,13 @@ export async function POST(request: Request) {
   const parsed = parseCampaign(body);
   if (!parsed.ok) return NextResponse.json({ message: parsed.message }, { status: 400 });
 
-  const campaign = await prisma.remarketing.create({ data: { ...parsed.value, botId: bot.id } });
+  const campaign = await prisma.remarketing.create({
+    data: {
+      ...parsed.value,
+      delayMinutes: Number(body.delayMinutes),
+      botId: bot.id,
+    },
+  });
   return NextResponse.json({ campaign }, { status: 201 });
 }
 
@@ -98,7 +111,8 @@ export async function PATCH(request: Request) {
   if (!result.count) return NextResponse.json({ message: "Campanha não encontrada" }, { status: 404 });
 
   const campaign = await prisma.remarketing.findUnique({ where: { id: body.id } });
-  return NextResponse.json({ campaign });
+  if (!campaign) return NextResponse.json({ message: "Campanha não encontrada" }, { status: 404 });
+  return NextResponse.json({ campaign: { ...campaign, delayMinutes: campaign.delayMinutes, delayDays: null } });
 }
 
 export async function DELETE(request: Request) {

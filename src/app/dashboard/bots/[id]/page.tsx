@@ -120,7 +120,14 @@ export default async function BotConfigPage({ params }: { params: Promise<{ id: 
         />
       </div>
 
-      <RemarketingManager botId={bot.id} initialCampaigns={bot.remarketings} />
+      <RemarketingManager
+        botId={bot.id}
+        initialCampaigns={bot.remarketings.map((campaign) => ({
+          ...campaign,
+          delayMinutes: campaign.delayDays ? campaign.delayDays * 1440 : campaign.delayMinutes,
+          delayDays: null,
+        }))}
+      />
     </div>
   );
 }

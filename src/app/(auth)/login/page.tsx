@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -25,6 +26,7 @@ export default function LoginPage() {
 
     const res = await signIn("credentials", {
       email,
+      nickname,
       password,
       redirect: false,
     });
@@ -44,11 +46,25 @@ export default function LoginPage() {
           <Brand className="text-slate-950" />
           <h1 className="text-2xl font-semibold tracking-tight">Bem-vindo de volta</h1>
           <p className="text-sm text-slate-500">
-            Digite seu e-mail e senha para acessar sua conta
+            Entre com seu apelido, e-mail ou CPF e senha
           </p>
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="nickname">Apelido</Label>
+            <Input
+              id="nickname"
+              type="text"
+              autoComplete="nickname"
+              minLength={3}
+              maxLength={24}
+              placeholder="Seu apelido"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              required
+            />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="email">E-mail ou CPF</Label>
             <Input

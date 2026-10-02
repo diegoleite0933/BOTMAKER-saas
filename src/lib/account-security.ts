@@ -20,3 +20,9 @@ export function normalizeCpf(value: unknown): string | null {
 
   return cpf;
 }
+
+export function normalizeNickname(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const nickname = value.normalize("NFC").trim();
+  return /^[\p{L}\p{N}._-]{3,24}$/u.test(nickname) ? nickname : null;
+}

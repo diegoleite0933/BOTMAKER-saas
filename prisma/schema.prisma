@@ -14,6 +14,7 @@ datasource db {
 model User {
   id            String      @id @default(cuid())
   name          String?
+  nickname      String?     @unique
   email         String?     @unique
   password      String?     // Bcrypt hash
   cpf           String?
@@ -197,7 +198,8 @@ model Remarketing {
   botId       String
   bot         Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
   name        String
-  delayDays   Int
+  delayDays   Int?
+  delayMinutes Int @default(60)
   message     String?
   mediaFileId String?
   mediaType   String?

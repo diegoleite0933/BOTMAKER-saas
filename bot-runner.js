@@ -101,7 +101,8 @@ async function processRemarketing(botRecord, bot) {
   for (const campaign of campaigns) {
     if (!campaign.message && !campaign.mediaFileId) continue;
 
-    const cutoff = new Date(Date.now() - campaign.delayDays * 86400000);
+    const delayMinutes = campaign.delayDays ? campaign.delayDays * 1440 : campaign.delayMinutes;
+    const cutoff = new Date(Date.now() - delayMinutes * 60000);
     const latestPaidOrders = await prisma.order.findMany({
       where: { botId: botRecord.id, status: "paid" },
       select: { telegramUserId: true, updatedAt: true },

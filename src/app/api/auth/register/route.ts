@@ -1,32 +1,41 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
-import { normalizeCpf } from "@/lib/account-security";
+import { normalizeCpf, normalizeNickname } from "@/lib/account-security";
 
 const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password, cpf } = await req.json();
+    const { name, nickname, email, password, cpf } = await req.json();
     const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const normalizedNickname = normalizeNickname(nickname);
     const normalizedCpf = normalizeCpf(cpf);
 
-    if (!name || !normalizedEmail || !password || !normalizedCpf) {
+    if (typeof name !== "string" || !name.trim() || !normalizedNickname || !normalizedEmail || typeof password !== "string" || !password || !normalizedCpf) {
       return NextResponse.json(
-        { message: "Informe nome, e-mail, senha e um CPF válido." },
+        { message: "Informe nome, apelido válido, e-mail, senha e um CPF válido." },
         { status: 400 }
       );
     }
 
     const existingUser = await prisma.user.findFirst({
       where: {
-        OR: [{ email: normalizedEmail }, { cpf: normalizedCpf }],
+        OR: [
+          { email: normalizedEmail },
+          { cpf: normalizedCpf },
+          { nickname: { equals: normalizedNickname, mode: "insensitive" } },
+        ],
       },
     });
 
     if (existingUser) {
       return NextResponse.json(
-        { message: existingUser.email === normalizedEmail ? "E-mail já cadastrado" : "CPF já cadastrado" },
+        { message: existingUser.email === normalizedEmail
+          ? "E-mail já cadastrado"
+          : existingUser.cpf === normalizedCpf
+            ? "CPF já cadastrado"
+            : "Apelido já cadastrado" },
         { status: 400 }
       );
     }
@@ -36,6 +45,7 @@ export async function POST(req: Request) {
     const user = await prisma.user.create({
       data: {
         name,
+        nickname: normalizedNickname,
         email: normalizedEmail,
         cpf: normalizedCpf,
         password: hashedPassword,

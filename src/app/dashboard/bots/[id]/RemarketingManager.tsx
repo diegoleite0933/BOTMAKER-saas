@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 type Campaign = {
   id: string;
   name: string;
-  delayDays: number;
+  delayDays?: number | null;
+  delayMinutes: number;
   message: string | null;
   mediaFileId: string | null;
   mediaType: string | null;
@@ -38,7 +39,7 @@ export function RemarketingManager({ botId, initialCampaigns }: { botId: string;
       const response = await fetch("/api/bots/remarketing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ botId, name: `Remarketing ${campaigns.length + 1}`, delayDays: 1, message: "", mediaFileId: "", mediaType: null, isActive: false }),
+        body: JSON.stringify({ botId, name: `Remarketing ${campaigns.length + 1}`, delayMinutes: 60, message: "", mediaFileId: "", mediaType: null, isActive: false }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || "Não foi possível criar o remarketing.");
@@ -150,7 +151,7 @@ export function RemarketingManager({ botId, initialCampaigns }: { botId: string;
                 >
                   <ChevronDown aria-hidden="true" className={`size-4 shrink-0 text-slate-500 transition-transform ${openCampaignId === campaign.id ? "rotate-180" : ""}`} />
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900 sm:text-base">{campaign.name}</span>
-                  <span className="hidden shrink-0 text-xs text-slate-500 sm:inline">{campaign.delayDays} {campaign.delayDays === 1 ? "dia" : "dias"}</span>
+                  <span className="hidden shrink-0 text-xs text-slate-500 sm:inline">{campaign.delayMinutes} min</span>
                   <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium ${campaign.isActive ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
                     {campaign.isActive ? "Ativo" : "Rascunho"}
                   </span>
@@ -166,8 +167,8 @@ export function RemarketingManager({ botId, initialCampaigns }: { botId: string;
                     <Input id={`campaign-name-${campaign.id}`} value={campaign.name} maxLength={80} onChange={(event) => updateCampaign(campaign.id, { name: event.target.value })} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor={`campaign-delay-${campaign.id}`}>Enviar quantos dias após o pagamento?</Label>
-                    <Input id={`campaign-delay-${campaign.id}`} type="number" min={1} max={365} step={1} value={campaign.delayDays} onChange={(event) => updateCampaign(campaign.id, { delayDays: Number(event.target.value) })} />
+                    <Label htmlFor={`campaign-delay-${campaign.id}`}>Enviar quantos minutos após o pagamento?</Label>
+                    <Input id={`campaign-delay-${campaign.id}`} type="number" min={1} max={525600} step={1} value={campaign.delayMinutes} onChange={(event) => updateCampaign(campaign.id, { delayMinutes: Number(event.target.value) })} />
                   </div>
                 </div>
 
