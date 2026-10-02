@@ -152,6 +152,7 @@ async function startBot(botRecord) {
 
   console.log(`[Bot Runner] Iniciando bot: @${botRecord.username}`);
   const bot = new Telegraf(botRecord.token);
+  registerPurchaseActions(bot, botRecord, prisma);
 
   // Comando /start
   bot.start(async (ctx) => {
