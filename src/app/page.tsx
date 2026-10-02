@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Brand } from "@/components/Brand";
 
 export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-slate-950 text-slate-50 selection:bg-blue-500/30">
       <header className="px-6 py-4 flex justify-between items-center border-b border-slate-800/50 backdrop-blur-md sticky top-0 z-50">
-        <h1 className="text-2xl font-bold tracking-tighter">
-          BotMaker<span className="text-blue-500">.io</span>
+        <h1 className="text-2xl tracking-tighter">
+          <Brand className="text-white" />
         </h1>
         <div className="space-x-4">
           <Link href="/login">
@@ -71,7 +72,7 @@ export default function Home() {
       </main>
 
       <footer className="py-8 text-center text-slate-600 border-t border-slate-800/50 relative z-10 text-sm">
-        <p>© 2026 BotMaker.io SaaS — Desenvolvido em React + Next.js</p>
+        <p>© 2026 ODISSEIABOT</p>
       </footer>
     </div>
   );

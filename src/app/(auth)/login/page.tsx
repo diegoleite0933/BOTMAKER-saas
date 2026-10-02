@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
+import { Brand } from "@/components/Brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,9 +41,7 @@ export default function LoginPage() {
     <div className="flex min-h-dvh w-full items-center justify-center bg-slate-50 px-4 py-8">
       <div className="w-full max-w-md space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-md sm:p-8">
         <div className="flex flex-col items-center space-y-2 text-center">
-          <div className="h-10 w-10 bg-blue-600 rounded-lg flex items-center justify-center mb-2">
-            <span className="text-white font-bold text-xl">B</span>
-          </div>
+          <Brand className="text-slate-950" />
           <h1 className="text-2xl font-semibold tracking-tight">Bem-vindo de volta</h1>
           <p className="text-sm text-slate-500">
             Digite seu e-mail e senha para acessar sua conta

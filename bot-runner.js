@@ -93,6 +93,89 @@ async function handlePixReview(ctx, action, orderId) {
   await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
 }
 
+async function processRemarketing(botRecord, bot) {
+  const campaigns = await prisma.remarketing.findMany({
+    where: { botId: botRecord.id, isActive: true },
+  });
+
+  for (const campaign of campaigns) {
+    if (!campaign.message && !campaign.mediaFileId) continue;
+
+    const cutoff = new Date(Date.now() - campaign.delayDays * 86400000);
+    const latestPaidOrders = await prisma.order.findMany({
+      where: { botId: botRecord.id, status: "paid" },
+      select: { telegramUserId: true, updatedAt: true },
+      orderBy: { updatedAt: "desc" },
+      distinct: ["telegramUserId"],
+    });
+    const customers = latestPaidOrders.filter((order) => order.updatedAt <= cutoff);
+
+    for (const customer of customers) {
+      const existing = await prisma.remarketingSend.findUnique({
+        where: {
+          remarketingId_telegramUserId: {
+            remarketingId: campaign.id,
+            telegramUserId: customer.telegramUserId,
+          },
+        },
+      });
+      const staleSendingBefore = new Date(Date.now() - 15 * 60 * 1000);
+
+      if (existing?.status === "sent") continue;
+      if (existing?.status === "sending" && existing.updatedAt > staleSendingBefore) continue;
+
+      if (existing) {
+        await prisma.remarketingSend.update({
+          where: { id: existing.id },
+          data: { status: "sending", failureReason: null, sentAt: null },
+        });
+      } else {
+        try {
+          await prisma.remarketingSend.create({
+            data: {
+              remarketingId: campaign.id,
+              botId: botRecord.id,
+              telegramUserId: customer.telegramUserId,
+              status: "sending",
+            },
+          });
+        } catch (error) {
+          if (error?.code === "P2002") continue;
+          throw error;
+        }
+      }
+
+      try {
+        if (campaign.mediaFileId && campaign.mediaType === "photo") {
+          await bot.telegram.sendPhoto(customer.telegramUserId, campaign.mediaFileId, {
+            ...(campaign.message ? { caption: campaign.message } : {}),
+          });
+        } else if (campaign.mediaFileId && campaign.mediaType === "video") {
+          await bot.telegram.sendVideo(customer.telegramUserId, campaign.mediaFileId, {
+            ...(campaign.message ? { caption: campaign.message } : {}),
+          });
+        } else if (campaign.message) {
+          await bot.telegram.sendMessage(customer.telegramUserId, campaign.message);
+        }
+
+        await prisma.remarketingSend.updateMany({
+          where: { remarketingId: campaign.id, telegramUserId: customer.telegramUserId },
+          data: { status: "sent", sentAt: new Date(), failureReason: null },
+        });
+      } catch (error) {
+        await prisma.remarketingSend.updateMany({
+          where: { remarketingId: campaign.id, telegramUserId: customer.telegramUserId },
+          data: {
+            status: "failed",
+            failureReason: error instanceof Error ? error.message.slice(0, 500) : "Falha ao enviar mensagem.",
+          },
+        });
+        console.error(`[Remarketing] Falha ao enviar campanha ${campaign.id}:`, error);
+      }
+    }
+  }
+}
+
 async function startBot(botRecord) {
   if (runningBots.has(botRecord.id)) return; // Já está rodando
 
@@ -499,6 +582,23 @@ async function startBot(botRecord) {
 
 async function main() {
   console.log("[Bot Runner] Verificando bots no banco de dados...");
+  let remarketingWorkerBusy = false;
+
+  setInterval(async () => {
+    if (remarketingWorkerBusy) return;
+    remarketingWorkerBusy = true;
+    try {
+      const activeBots = await prisma.bot.findMany({ where: { status: "active" } });
+      for (const botRecord of activeBots) {
+        const bot = runningBots.get(botRecord.id);
+        if (bot) await processRemarketing(botRecord, bot);
+      }
+    } catch (error) {
+      console.error("[Remarketing] Erro ao processar campanhas:", error);
+    } finally {
+      remarketingWorkerBusy = false;
+    }
+  }, 60 * 1000);
   
   // Roda num loop infinito verificando novos bots a cada 10 segundos
   setInterval(async () => {

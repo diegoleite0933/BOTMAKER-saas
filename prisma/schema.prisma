@@ -67,6 +67,8 @@ model Bot {
   products    Product[]
   orders      Order[]
   customers   TelegramUser[]
+  remarketings Remarketing[]
+  remarketingSends RemarketingSend[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -117,6 +119,7 @@ model TelegramUser {
   
   orders      Order[]
   accesses    Access[]
+  remarketingSends RemarketingSend[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -186,4 +189,39 @@ model WebhookEvent {
   updatedAt   DateTime @updatedAt
 
   @@unique([source, eventId]) // Garante que um evento não seja processado 2x
+}
+
+model Remarketing {
+  id          String   @id @default(cuid())
+  botId       String
+  bot         Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  name        String
+  delayDays   Int
+  message     String?
+  mediaFileId String?
+  mediaType   String?
+  isActive    Boolean  @default(false)
+  sends       RemarketingSend[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([botId, isActive])
+}
+
+model RemarketingSend {
+  id             String       @id @default(cuid())
+  remarketingId  String
+  remarketing    Remarketing  @relation(fields: [remarketingId], references: [id], onDelete: Cascade)
+  botId          String
+  bot            Bot          @relation(fields: [botId], references: [id], onDelete: Cascade)
+  telegramUserId String
+  telegramUser   TelegramUser @relation(fields: [telegramUserId, botId], references: [id, botId], onDelete: Cascade)
+  status         String       @default("sending")
+  failureReason  String?
+  sentAt         DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([remarketingId, telegramUserId])
+  @@index([botId, status])
 }

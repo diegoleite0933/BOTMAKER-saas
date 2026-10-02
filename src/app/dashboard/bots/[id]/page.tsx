@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Label } from "@/components/ui/label";
 import { PaymentSettingsForm } from "./PaymentSettingsForm";
 import { WelcomeSettingsForm } from "./WelcomeSettingsForm";
+import { RemarketingManager } from "./RemarketingManager";
 
 const prisma = new PrismaClient();
 
@@ -16,7 +17,8 @@ export default async function BotConfigPage({ params }: { params: Promise<{ id: 
   const session = await getServerSession(authOptions);
   
   const bot = await prisma.bot.findUnique({
-    where: { id: resolvedParams.id }
+    where: { id: resolvedParams.id },
+    include: { remarketings: { orderBy: { createdAt: "asc" } } },
   });
 
   if (!bot) {
@@ -112,6 +114,8 @@ export default async function BotConfigPage({ params }: { params: Promise<{ id: 
           initialPixReviewChatId={bot.pixReviewChatId}
         />
       </div>
+
+      <RemarketingManager botId={bot.id} initialCampaigns={bot.remarketings} />
     </div>
   );
 }

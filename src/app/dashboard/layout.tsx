@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { isAdminEmail } from "@/lib/account-security";
+import { Brand } from "@/components/Brand";
 
 export default async function DashboardLayout({
   children,
@@ -20,8 +21,8 @@ export default async function DashboardLayout({
     <div className="flex min-h-screen w-full bg-slate-50">
       <aside className="w-64 border-r bg-slate-950 text-slate-400 flex flex-col hidden md:flex">
         <div className="h-16 flex items-center px-6 border-b border-slate-800">
-          <Link className="flex items-center gap-2 font-bold text-white text-xl tracking-tight" href="/dashboard">
-            BotMaker<span className="text-blue-500">.io</span>
+          <Link className="flex items-center gap-2 text-xl tracking-tight" href="/dashboard">
+            <Brand className="text-white" />
           </Link>
         </div>
         <nav className="flex-1 px-4 py-6 space-y-2">
@@ -55,8 +56,8 @@ export default async function DashboardLayout({
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden h-16 flex items-center px-4 border-b bg-slate-950 justify-between">
-          <Link className="font-bold text-white text-xl tracking-tight" href="/dashboard">
-            BotMaker<span className="text-blue-500">.io</span>
+          <Link className="text-xl tracking-tight" href="/dashboard">
+            <Brand className="text-white" />
           </Link>
           <Link href="/api/auth/signout" className="text-sm text-slate-400 hover:text-white">Sair</Link>
         </header>

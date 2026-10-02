@@ -22,7 +22,7 @@ async function generatePixQr({ pixKey, merchantName, merchantCity, amount, trans
 
   const copyPasteCode = payload({
     key: pixKey.trim(),
-    name: normalizeField(merchantName, 25, "BOTMAKER"),
+    name: normalizeField(merchantName, 25, "ODISSEIABOT"),
     city: normalizeField(merchantCity, 15, "SAO PAULO"),
     amount: Number(amount.toFixed(2)),
     transactionId: normalizeField(transactionId, 25, "PEDIDO"),
