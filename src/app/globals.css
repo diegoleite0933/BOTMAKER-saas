@@ -260,6 +260,29 @@
   --sidebar-ring: oklch(0.72 0.1 235);
 }
 
+.dashboard-theme:has(.dashboard-overview) {
+  background-color: #050505;
+}
+
+.dashboard-theme:has(.dashboard-overview) > div > main {
+  max-width: none;
+  background-color: #050505;
+}
+
+.dashboard-theme:has(.dashboard-overview) nav[aria-label="Navegação principal móvel"] {
+  border-color: #1c1c1c;
+  background-color: #090909;
+}
+
+.dashboard-theme:has(.dashboard-overview) nav[aria-label="Navegação principal móvel"] a {
+  color: #a3a3a3;
+}
+
+.dashboard-theme:has(.dashboard-overview) nav[aria-label="Navegação principal móvel"] a:hover {
+  background-color: #171717;
+  color: #fff;
+}
+
 .dark .bg-white {
   background-color: #0d2039;
 }

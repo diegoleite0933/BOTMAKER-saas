@@ -18,6 +18,7 @@ model User {
   email     String?   @unique
   password  String?   // Bcrypt hash
   cpf       String?
+  revenueGoal Float?
   isBanned  Boolean   @default(false)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
