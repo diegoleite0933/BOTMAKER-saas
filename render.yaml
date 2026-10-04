@@ -9,6 +9,7 @@ services:
     name: botmaker-web
     env: node
     plan: free
+    autoDeployTrigger: commit
     buildCommand: npm install --include=dev && npx prisma generate && npx prisma db push && npm run build
     startCommand: node start.js
     envVars:
