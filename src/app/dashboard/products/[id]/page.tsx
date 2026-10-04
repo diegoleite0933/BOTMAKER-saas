@@ -29,7 +29,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
       orderBy: { name: "asc" },
     }),
     prisma.product.findMany({
-      where: { id: { not: id }, status: "active", bot: { workspaceId: workspace.id } },
+      where: { id: { not: id }, status: "active", isOrderBumpOnly: true, bot: { workspaceId: workspace.id } },
       select: { id: true, botId: true, name: true, price: true },
       orderBy: { name: "asc" },
     }),
@@ -45,7 +45,9 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         name: product.name,
         description: product.description || "",
         price: product.price,
+        discountPercent: product.discountPercent,
         status: product.status,
+        isOrderBumpOnly: product.isOrderBumpOnly,
         botId: product.botId,
         delivery: product.deliveries[0] || null,
         orderBumpProductId: product.orderBumpProductId,

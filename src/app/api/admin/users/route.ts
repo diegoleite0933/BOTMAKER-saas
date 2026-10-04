@@ -25,12 +25,41 @@ export async function GET() {
       cpf: true,
       isBanned: true,
       createdAt: true,
-      _count: { select: { workspaces: true } },
+      workspaces: { select: { id: true, bots: { select: { id: true } } } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ users });
+  const botIds = users.flatMap((user) => user.workspaces.flatMap((workspace) => workspace.bots.map((bot) => bot.id)));
+  const [paidOrdersByBot, bots] = botIds.length
+    ? await Promise.all([
+        prisma.order.groupBy({
+          by: ["botId"],
+          where: { botId: { in: botIds }, status: "paid" },
+          _sum: { amount: true },
+          _count: { _all: true },
+        }),
+        prisma.bot.findMany({ where: { id: { in: botIds } }, select: { id: true, workspace: { select: { userId: true } } } }),
+      ])
+    : [[], []];
+  const ownerByBot = new Map(bots.map((bot) => [bot.id, bot.workspace.userId]));
+  const salesByUser = new Map<string, { amount: number; count: number }>();
+  for (const botSales of paidOrdersByBot) {
+    const ownerId = ownerByBot.get(botSales.botId);
+    if (!ownerId) continue;
+    const current = salesByUser.get(ownerId) || { amount: 0, count: 0 };
+    current.amount += botSales._sum.amount || 0;
+    current.count += botSales._count._all;
+    salesByUser.set(ownerId, current);
+  }
+
+  return NextResponse.json({
+    users: users.map(({ workspaces, ...user }) => ({
+      ...user,
+      _count: { workspaces: workspaces.length },
+      sales: salesByUser.get(user.id) || { amount: 0, count: 0 },
+    })),
+  });
 }
 
 export async function PATCH(request: Request) {

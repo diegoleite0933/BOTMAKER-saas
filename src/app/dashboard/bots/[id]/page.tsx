@@ -22,6 +22,11 @@ export default async function BotConfigPage({ params }: { params: Promise<{ id: 
     include: {
       remarketings: { orderBy: { createdAt: "asc" } },
       welcomeMedia: { orderBy: { position: "asc" } },
+      products: {
+        where: { status: "active", isOrderBumpOnly: false },
+        select: { id: true, name: true, price: true, discountPercent: true, deliveries: { take: 1, select: { type: true } } },
+        orderBy: { name: "asc" },
+      },
     },
   });
 
@@ -127,6 +132,13 @@ export default async function BotConfigPage({ params }: { params: Promise<{ id: 
 
       <RemarketingManager
         botId={bot.id}
+        availableOffers={bot.products.map((product) => ({
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          discountPercent: product.discountPercent,
+          kind: ["group", "channel"].includes(product.deliveries[0]?.type || "") ? "Acesso" : "Produto",
+        }))}
         initialCampaigns={bot.remarketings.map((campaign) => ({
           ...campaign,
           delayMinutes: campaign.delayDays ? campaign.delayDays * 1440 : campaign.delayMinutes,

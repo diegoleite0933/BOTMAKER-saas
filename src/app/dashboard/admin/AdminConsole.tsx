@@ -16,6 +16,7 @@ type AdminUser = {
   isBanned: boolean;
   createdAt: string | Date;
   _count: { workspaces: number };
+  sales: { amount: number; count: number };
 };
 
 function formatCpf(value: string | null) {
@@ -145,6 +146,7 @@ export function AdminConsole({ initialUsers, initialCpf }: { initialUsers: Admin
                     <TableHead>Cliente</TableHead>
                     <TableHead>CPF</TableHead>
                     <TableHead>Workspaces</TableHead>
+                    <TableHead>Vendas aprovadas</TableHead>
                     <TableHead>Cadastro</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Acesso</TableHead>
@@ -159,6 +161,10 @@ export function AdminConsole({ initialUsers, initialCpf }: { initialUsers: Admin
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-slate-600">{formatCpf(user.cpf)}</TableCell>
                       <TableCell>{user._count.workspaces}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <span className="font-medium text-slate-900">{user.sales.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                        <span className="mt-1 block text-xs text-slate-500">{user.sales.count} {user.sales.count === 1 ? "pedido pago" : "pedidos pagos"}</span>
+                      </TableCell>
                       <TableCell className="whitespace-nowrap">{new Date(user.createdAt).toLocaleDateString("pt-BR")}</TableCell>
                       <TableCell>
                         <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${user.isBanned ? "bg-rose-50 text-rose-800" : "bg-emerald-50 text-emerald-800"}`}>

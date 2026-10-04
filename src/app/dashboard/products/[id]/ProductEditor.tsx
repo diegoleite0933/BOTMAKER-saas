@@ -32,7 +32,9 @@ export function ProductEditor({
     name: string;
     description: string;
     price: number;
+    discountPercent: number;
     status: string;
+    isOrderBumpOnly: boolean;
     botId: string;
     delivery: Delivery;
     orderBumpProductId: string | null;
@@ -44,8 +46,10 @@ export function ProductEditor({
   const [name, setName] = useState(product.name);
   const [description, setDescription] = useState(product.description);
   const [price, setPrice] = useState(String(product.price));
+  const [discountPercent, setDiscountPercent] = useState(String(product.discountPercent));
   const [botId, setBotId] = useState(product.botId);
   const [status, setStatus] = useState(product.status);
+  const [isOrderBumpOnly, setIsOrderBumpOnly] = useState(product.isOrderBumpOnly);
   const [orderBumpProductId, setOrderBumpProductId] = useState(product.orderBumpProductId || "");
   const [telegramMediaId, setTelegramMediaId] = useState(product.telegramMediaId);
   const [telegramMediaType, setTelegramMediaType] = useState(product.telegramMediaType);
@@ -70,8 +74,10 @@ export function ProductEditor({
           name,
           description,
           price: Number(price),
+          discountPercent: Number(discountPercent),
           botId,
           status,
+          isOrderBumpOnly,
           orderBumpProductId,
           telegramMediaId,
           telegramMediaType,
@@ -115,7 +121,7 @@ export function ProductEditor({
     }
   }
 
-  const usesChatId = deliveryType === "group" || deliveryType === "channel";
+  const isAccessOffer = deliveryType === "group" || deliveryType === "channel";
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -147,6 +153,11 @@ export function ProductEditor({
                 <Input id="product-price" type="number" min="0.01" step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} required />
               </div>
             </div>
+            <div className="space-y-2 sm:max-w-xs">
+              <Label htmlFor="product-discount">Desconto (%)</Label>
+              <Input id="product-discount" type="number" min="0" max="90" step="1" value={discountPercent} onChange={(event) => setDiscountPercent(event.target.value)} required />
+              <p className="text-xs text-slate-500">A oferta será apresentada pelo preço com desconto no bot.</p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="product-description">Descrição</Label>
               <Textarea id="product-description" value={description} onChange={(event) => setDescription(event.target.value)} rows={4} maxLength={2000} />
@@ -171,6 +182,10 @@ export function ProductEditor({
                 </select>
               </div>
             </div>
+            <label className="flex cursor-pointer items-start gap-3 rounded-md border border-slate-200 p-3">
+              <input type="checkbox" checked={isOrderBumpOnly} onChange={(event) => setIsOrderBumpOnly(event.target.checked)} className="mt-1 size-4 accent-blue-700" />
+              <span><span className="block font-semibold">Somente order bump</span><span className="text-xs text-slate-500">Não aparece na lista inicial do bot; só é oferecido como adicional.</span></span>
+            </label>
           </CardContent>
         </Card>
 
@@ -234,31 +249,44 @@ export function ProductEditor({
             <CardDescription>Configure o que o cliente recebe após o pagamento.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 pt-5">
-            <div className="space-y-2">
-              <Label htmlFor="delivery-type">Tipo de entrega</Label>
-              <select id="delivery-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={deliveryType} onChange={(event) => setDeliveryType(event.target.value)}>
-                <option value="group">Grupo do Telegram</option>
-                <option value="channel">Canal do Telegram</option>
-                <option value="file">Link de arquivo</option>
-                <option value="text">Texto ou instruções</option>
-              </select>
-            </div>
-            {usesChatId ? (
-              <div className="space-y-2">
-                <Label htmlFor="delivery-chat">ID do grupo/canal</Label>
-                <Input id="delivery-chat" value={telegramChatId} onChange={(event) => setTelegramChatId(event.target.value)} placeholder="Ex: -100123456789" required />
-                <p className="text-xs text-slate-500">O bot precisa ser administrador do grupo ou canal.</p>
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-medium">Tipo de oferta</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 ${isAccessOffer ? "border-blue-600 bg-blue-50" : "border-slate-200"}`}>
+                  <input type="radio" name="product-offer-type" checked={isAccessOffer} onChange={() => setDeliveryType(deliveryType === "channel" ? "channel" : "group")} className="mt-1 accent-blue-700" />
+                  <span><span className="block font-semibold">Acesso Telegram</span><span className="text-xs text-slate-500">Grupo ou canal</span></span>
+                </label>
+                <label className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 ${!isAccessOffer ? "border-blue-600 bg-blue-50" : "border-slate-200"}`}>
+                  <input type="radio" name="product-offer-type" checked={!isAccessOffer} onChange={() => setDeliveryType("file")} className="mt-1 accent-blue-700" />
+                  <span><span className="block font-semibold">Produto externo</span><span className="text-xs text-slate-500">Link de entrega</span></span>
+                </label>
+              </div>
+            </fieldset>
+            {isAccessOffer ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="delivery-type">Tipo de acesso</Label>
+                  <select id="delivery-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={deliveryType} onChange={(event) => setDeliveryType(event.target.value)}>
+                    <option value="group">Grupo do Telegram</option>
+                    <option value="channel">Canal do Telegram</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="delivery-chat">ID do grupo/canal</Label>
+                  <Input id="delivery-chat" value={telegramChatId} onChange={(event) => setTelegramChatId(event.target.value)} placeholder="Ex: -100123456789" required />
+                  <p className="text-xs text-slate-500">O bot precisa ser administrador do grupo ou canal.</p>
+                </div>
               </div>
             ) : (
               <div className="space-y-2">
-                <Label htmlFor="delivery-content">{deliveryType === "file" ? "Link do arquivo" : "Conteúdo entregue"}</Label>
-                <Textarea id="delivery-content" value={content} onChange={(event) => setContent(event.target.value)} rows={4} required />
+                <Label htmlFor="delivery-content">Link externo do produto</Label>
+                <Input id="delivery-content" type="url" inputMode="url" value={content} onChange={(event) => setContent(event.target.value)} placeholder="https://exemplo.com/produto" required />
               </div>
             )}
-            <div className="space-y-2 sm:max-w-xs">
+            {isAccessOffer && <div className="space-y-2 sm:max-w-xs">
               <Label htmlFor="delivery-duration">Duração do acesso em dias</Label>
               <Input id="delivery-duration" type="number" min="1" step="1" value={durationDays} onChange={(event) => setDurationDays(event.target.value)} placeholder="Em branco para vitalício" />
-            </div>
+            </div>}
           </CardContent>
         </Card>
 

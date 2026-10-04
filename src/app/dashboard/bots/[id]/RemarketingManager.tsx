@@ -15,12 +15,16 @@ type Campaign = {
   delayDays?: number | null;
   delayMinutes: number;
   message: string | null;
+  targetProductId: string | null;
+  discountPercent: number;
   mediaFileId: string | null;
   mediaType: string | null;
   isActive: boolean;
 };
 
-export function RemarketingManager({ botId, initialCampaigns }: { botId: string; initialCampaigns: Campaign[] }) {
+type OfferOption = { id: string; name: string; price: number; discountPercent: number; kind: string };
+
+export function RemarketingManager({ botId, availableOffers, initialCampaigns }: { botId: string; availableOffers: OfferOption[]; initialCampaigns: Campaign[] }) {
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [openCampaignId, setOpenCampaignId] = useState<string | null>(initialCampaigns[0]?.id || null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -40,7 +44,7 @@ export function RemarketingManager({ botId, initialCampaigns }: { botId: string;
       const response = await fetch("/api/bots/remarketing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ botId, name: `Remarketing ${campaigns.length + 1}`, delayMinutes: 60, message: "", mediaFileId: "", mediaType: null, isActive: false }),
+        body: JSON.stringify({ botId, name: `Remarketing ${campaigns.length + 1}`, delayMinutes: 60, message: "", targetProductId: null, discountPercent: 0, mediaFileId: "", mediaType: null, isActive: false }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || "Não foi possível criar o remarketing.");
@@ -170,6 +174,37 @@ export function RemarketingManager({ botId, initialCampaigns }: { botId: string;
                   <div className="space-y-2">
                     <Label htmlFor={`campaign-delay-${campaign.id}`}>Enviar quantos minutos após iniciar o bot?</Label>
                     <Input id={`campaign-delay-${campaign.id}`} type="number" min={1} max={525600} step={1} value={campaign.delayMinutes} onChange={(event) => updateCampaign(campaign.id, { delayMinutes: Number(event.target.value) })} />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor={`campaign-offer-${campaign.id}`}>Oferta com desconto</Label>
+                    <select
+                      id={`campaign-offer-${campaign.id}`}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={campaign.targetProductId || ""}
+                      onChange={(event) => updateCampaign(campaign.id, { targetProductId: event.target.value || null, discountPercent: event.target.value ? campaign.discountPercent : 0 })}
+                    >
+                      <option value="">Sem oferta de desconto</option>
+                      {availableOffers.map((offer) => (
+                        <option key={offer.id} value={offer.id}>{offer.kind}: {offer.name} · {offer.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`campaign-discount-${campaign.id}`}>Desconto da oferta (%)</Label>
+                    <Input
+                      id={`campaign-discount-${campaign.id}`}
+                      type="number"
+                      min={campaign.targetProductId ? 1 : 0}
+                      max={90}
+                      step={1}
+                      value={campaign.discountPercent}
+                      disabled={!campaign.targetProductId}
+                      onChange={(event) => updateCampaign(campaign.id, { discountPercent: Number(event.target.value) })}
+                    />
+                    <p className="text-xs text-slate-500">O cliente recebe um botão individual para abrir a oferta com o desconto aplicado no PIX.</p>
                   </div>
                 </div>
 

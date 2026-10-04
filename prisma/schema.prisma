@@ -88,8 +88,10 @@ model Product {
   name               String
   description        String?
   price              Float
+  discountPercent    Int       @default(0)
   currency           String    @default("BRL")
   status             String    @default("active") // active, inactive
+  isOrderBumpOnly    Boolean   @default(false)
   orderBumpProductId String?
   orderBumpProduct   Product?  @relation("ProductOrderBump", fields: [orderBumpProductId], references: [id], onDelete: SetNull)
   offeredAsOrderBump Product[] @relation("ProductOrderBump")
@@ -99,6 +101,7 @@ model Product {
   deliveries  ProductDelivery[]
   orders      Order[] @relation("BaseOrderProduct")
   bumpOrders  Order[] @relation("BumpOrderProduct")
+  remarketingDiscounts Remarketing[] @relation("RemarketingDiscountProduct")
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -149,11 +152,13 @@ model Order {
   product        Product      @relation("BaseOrderProduct", fields: [productId], references: [id], onDelete: Restrict)
   bumpProductId  String?
   bumpProduct    Product?     @relation("BumpOrderProduct", fields: [bumpProductId], references: [id], onDelete: SetNull)
+  discountPercent Int          @default(0)
   telegramUserId String
   telegramUser   TelegramUser @relation(fields: [telegramUserId, botId], references: [id, botId], onDelete: Restrict)
   
   status         String       @default("pending") // pending, paid, failed, cancelled, refunded
   amount         Float
+  bumpDiscountPercent Int     @default(0)
   currency       String       @default("BRL")
   
   paymentGateway String       @default("mercadopago")
@@ -210,6 +215,9 @@ model Remarketing {
   name        String
   delayDays   Int?
   delayMinutes Int @default(60)
+  targetProductId String?
+  targetProduct Product? @relation("RemarketingDiscountProduct", fields: [targetProductId], references: [id], onDelete: SetNull)
+  discountPercent Int @default(0)
   message     String?
   mediaFileId String?
   mediaType   String?

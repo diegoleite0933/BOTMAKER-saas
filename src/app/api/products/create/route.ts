@@ -12,10 +12,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Não autorizado" }, { status: 401 });
     }
 
-    const { name, description, price, botId, telegramChatId } = await req.json();
+    const { name, description, price, discountPercent, botId, deliveryType, telegramChatId, content, durationDays, isOrderBumpOnly } = await req.json();
+    const numericPrice = Number(price);
+    const numericDiscount = Number(discountPercent || 0);
+    const normalizedName = typeof name === "string" ? name.trim() : "";
+    const normalizedChatId = typeof telegramChatId === "string" ? telegramChatId.trim() : "";
+    const normalizedContent = typeof content === "string" ? content.trim() : "";
+    const accessOffer = deliveryType === "group" || deliveryType === "channel";
 
-    if (!name || !price || !botId || !telegramChatId) {
+    if (!normalizedName || normalizedName.length > 120 || !Number.isFinite(numericPrice) || numericPrice <= 0 || !botId) {
       return NextResponse.json({ message: "Dados incompletos" }, { status: 400 });
+    }
+    if (!Number.isInteger(numericDiscount) || numericDiscount < 0 || numericDiscount > 90) {
+      return NextResponse.json({ message: "O desconto deve estar entre 0% e 90%." }, { status: 400 });
+    }
+    if (!accessOffer && deliveryType !== "file") {
+      return NextResponse.json({ message: "Escolha acesso de grupo/canal ou produto com link externo." }, { status: 400 });
+    }
+    if (accessOffer && !normalizedChatId) return NextResponse.json({ message: "Informe o ID do grupo ou canal." }, { status: 400 });
+    if (deliveryType === "file") {
+      try {
+        const url = new URL(normalizedContent);
+        if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("invalid protocol");
+      } catch {
+        return NextResponse.json({ message: "Informe um link externo válido para o produto." }, { status: 400 });
+      }
+    }
+    const numericDuration = durationDays === null || durationDays === "" ? null : Number(durationDays);
+    if (accessOffer && numericDuration !== null && (!Number.isInteger(numericDuration) || numericDuration < 1)) {
+      return NextResponse.json({ message: "A duração deve ser um número inteiro positivo." }, { status: 400 });
     }
 
     // Validação de segurança: bot pertence ao usuário?
@@ -33,14 +58,18 @@ export async function POST(req: Request) {
 
     const product = await prisma.product.create({
       data: {
-        name,
-        description,
-        price,
+        name: normalizedName,
+        description: typeof description === "string" ? description.trim() || null : null,
+        price: numericPrice,
+        discountPercent: numericDiscount,
         botId,
+        isOrderBumpOnly: isOrderBumpOnly === true,
         deliveries: {
           create: {
-            type: "group", // fixo como grupo/canal por enquanto
-            telegramChatId
+            type: deliveryType,
+            telegramChatId: accessOffer ? normalizedChatId : null,
+            content: deliveryType === "file" ? normalizedContent : null,
+            durationDays: accessOffer ? numericDuration : null,
           }
         }
       }

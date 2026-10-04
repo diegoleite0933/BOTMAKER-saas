@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { isAdminEmail } from "@/lib/account-security";
 import { Brand } from "@/components/Brand";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default async function DashboardLayout({
   children,
@@ -19,7 +18,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-slate-50">
+    <div data-theme-scope="dashboard" className="dashboard-theme flex min-h-screen w-full bg-slate-50">
       <aside className="w-64 border-r bg-slate-950 text-slate-400 flex flex-col hidden md:flex">
         <div className="h-16 flex items-center px-6 border-b border-slate-800">
           <Link className="flex items-center gap-2 text-xl tracking-tight" href="/dashboard">
@@ -46,11 +45,10 @@ export default async function DashboardLayout({
           )}
         </nav>
         <div className="p-4 border-t border-slate-800">
-          <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="mb-3 flex items-center gap-2">
             <div className="min-w-0 truncate text-sm text-slate-300">
               👤 {session.user?.name || session.user?.email}
             </div>
-            <ThemeToggle />
           </div>
           <Link href="/api/auth/signout" className="block w-full text-center px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-sm transition-colors">
             Desconectar
@@ -64,7 +62,6 @@ export default async function DashboardLayout({
             <Brand className="text-white" />
           </Link>
           <div className="flex items-center gap-3">
-            <ThemeToggle />
             <Link href="/api/auth/signout" className="text-sm text-slate-400 hover:text-white">Sair</Link>
           </div>
         </header>

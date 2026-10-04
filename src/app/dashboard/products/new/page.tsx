@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+type BotOption = { id: string; name: string; username: string | null };
+
 export default function NewProductPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -16,11 +18,18 @@ export default function NewProductPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [discountPercent, setDiscountPercent] = useState("0");
   const [botId, setBotId] = useState(initialBotId);
+  const [offerType, setOfferType] = useState<"access" | "product">("access");
+  const [accessType, setAccessType] = useState<"group" | "channel">("group");
   const [telegramChatId, setTelegramChatId] = useState("");
+  const [externalUrl, setExternalUrl] = useState("");
+  const [durationDays, setDurationDays] = useState("");
+  const [isOrderBumpOnly, setIsOrderBumpOnly] = useState(false);
   
   const [loading, setLoading] = useState(false);
-  const [bots, setBots] = useState<any[]>([]);
+  const [bots, setBots] = useState<BotOption[]>([]);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     // Fetch user bots
@@ -33,6 +42,7 @@ export default function NewProductPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
 
     try {
       const res = await fetch("/api/products/create", {
@@ -42,17 +52,22 @@ export default function NewProductPage() {
           name, 
           description, 
           price: parseFloat(price), 
+          discountPercent: Number(discountPercent),
           botId, 
-          telegramChatId 
+          deliveryType: offerType === "access" ? accessType : "file",
+          telegramChatId: offerType === "access" ? telegramChatId : null,
+          content: offerType === "product" ? externalUrl : null,
+          durationDays: offerType === "access" && durationDays ? Number(durationDays) : null,
+          isOrderBumpOnly,
         }),
       });
 
-      if (!res.ok) throw new Error("Erro ao criar produto");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Erro ao criar produto");
       
       router.push("/dashboard/products");
     } catch (err) {
-      console.error(err);
-      alert("Erro ao criar produto.");
+      setError(err instanceof Error ? err.message : "Erro ao criar produto.");
       setLoading(false);
     }
   };
@@ -64,9 +79,7 @@ export default function NewProductPage() {
       <Card>
         <CardHeader>
           <CardTitle>Detalhes da Venda</CardTitle>
-          <CardDescription>
-            Configure o que será vendido, o valor e como o bot entregará o acesso.
-          </CardDescription>
+          <CardDescription>Cadastre um acesso do Telegram ou um produto entregue por link externo.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreate} className="space-y-6">
@@ -96,6 +109,12 @@ export default function NewProductPage() {
               </div>
             </div>
 
+            <div className="space-y-2 sm:max-w-xs">
+              <Label htmlFor="discount-percent">Desconto (%)</Label>
+              <Input id="discount-percent" type="number" min="0" max="90" step="1" value={discountPercent} onChange={(event) => setDiscountPercent(event.target.value)} required />
+              <p className="text-xs text-slate-500">O preço promocional será calculado sobre o preço informado.</p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="description">Descrição para o Usuário</Label>
               <Textarea
@@ -123,22 +142,54 @@ export default function NewProductPage() {
               </select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="chatId">ID do Grupo/Canal (Entrega)</Label>
-              <Input
-                id="chatId"
-                placeholder="Ex: -100123456789"
-                value={telegramChatId}
-                onChange={(e) => setTelegramChatId(e.target.value)}
-                required
-              />
-              <p className="text-xs text-slate-500">
-                O bot precisa ser administrador deste grupo/canal. Use o ID (começa com -100).
-              </p>
-            </div>
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-medium">O que será vendido?</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 ${offerType === "access" ? "border-blue-600 bg-blue-50" : "border-slate-200"}`}>
+                  <input type="radio" name="offer-type" value="access" checked={offerType === "access"} onChange={() => setOfferType("access")} className="mt-1 accent-blue-700" />
+                  <span><span className="block font-semibold">Acesso Telegram</span><span className="text-xs text-slate-500">Grupo ou canal seu</span></span>
+                </label>
+                <label className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 ${offerType === "product" ? "border-blue-600 bg-blue-50" : "border-slate-200"}`}>
+                  <input type="radio" name="offer-type" value="product" checked={offerType === "product"} onChange={() => setOfferType("product")} className="mt-1 accent-blue-700" />
+                  <span><span className="block font-semibold">Produto externo</span><span className="text-xs text-slate-500">Link entregue após o pagamento</span></span>
+                </label>
+              </div>
+            </fieldset>
 
+            {offerType === "access" ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="access-type">Tipo de acesso</Label>
+                  <select id="access-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={accessType} onChange={(event) => setAccessType(event.target.value as "group" | "channel")}>
+                    <option value="group">Grupo do Telegram</option>
+                    <option value="channel">Canal do Telegram</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="chatId">ID do grupo/canal</Label>
+                  <Input id="chatId" placeholder="Ex: -100123456789" value={telegramChatId} onChange={(event) => setTelegramChatId(event.target.value)} required />
+                  <p className="text-xs text-slate-500">O bot precisa ser administrador e ter permissão para convidar usuários.</p>
+                </div>
+                <div className="space-y-2 sm:max-w-xs">
+                  <Label htmlFor="duration-days">Duração do acesso em dias</Label>
+                  <Input id="duration-days" type="number" min="1" step="1" placeholder="Em branco para vitalício" value={durationDays} onChange={(event) => setDurationDays(event.target.value)} />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="external-url">Link externo entregue após o pagamento</Label>
+                <Input id="external-url" type="url" inputMode="url" placeholder="https://exemplo.com/produto" value={externalUrl} onChange={(event) => setExternalUrl(event.target.value)} required />
+              </div>
+            )}
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-md border border-slate-200 p-3">
+              <input type="checkbox" checked={isOrderBumpOnly} onChange={(event) => setIsOrderBumpOnly(event.target.checked)} className="mt-1 size-4 accent-blue-700" />
+              <span><span className="block font-semibold">Somente order bump</span><span className="text-xs text-slate-500">Não aparece na lista inicial do bot; só é oferecido como adicional.</span></span>
+            </label>
+
+            {error && <p role="alert" className="text-sm font-medium text-red-700">{error}</p>}
             <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
-              {loading ? "Salvando..." : "Criar Produto"}
+              {loading ? "Salvando..." : isOrderBumpOnly ? "Criar oferta de order bump" : "Criar oferta"}
             </Button>
           </form>
         </CardContent>

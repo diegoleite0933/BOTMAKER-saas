@@ -2,6 +2,7 @@ require("dotenv").config();
 const { Telegraf } = require("telegraf");
 const { PrismaClient } = require("@prisma/client");
 const { registerPurchaseActions } = require("./src/lib/telegram-purchase.js");
+const { registerStartMenu } = require("./src/lib/telegram-start.js");
 const { deliverPaidOrder } = require("./src/lib/product-delivery.js");
 const prisma = new PrismaClient();
 
@@ -117,16 +118,22 @@ async function processRemarketing(botRecord, bot) {
           continue;
         }
 
+        const replyMarkup = campaign.targetProductId && campaign.discountPercent > 0
+          ? { reply_markup: { inline_keyboard: [[{ text: `Resgatar oferta -${campaign.discountPercent}%`, callback_data: `rmdeal_${campaign.id}` }]] } }
+          : {};
+
         if (campaign.mediaFileId && campaign.mediaType === "photo") {
           await bot.telegram.sendPhoto(customer.id, campaign.mediaFileId, {
             ...(campaign.message ? { caption: campaign.message } : {}),
+            ...replyMarkup,
           });
         } else if (campaign.mediaFileId && campaign.mediaType === "video") {
           await bot.telegram.sendVideo(customer.id, campaign.mediaFileId, {
             ...(campaign.message ? { caption: campaign.message } : {}),
+            ...replyMarkup,
           });
         } else if (campaign.message) {
-          await bot.telegram.sendMessage(customer.id, campaign.message);
+          await bot.telegram.sendMessage(customer.id, campaign.message, replyMarkup);
         }
 
         await prisma.remarketingSend.updateMany({
@@ -154,80 +161,7 @@ async function startBot(botRecord) {
   const bot = new Telegraf(botRecord.token);
   registerPurchaseActions(bot, botRecord, prisma);
 
-  // Comando /start
-  bot.start(async (ctx) => {
-    try {
-      // Buscar bot atualizado
-      const currentBot = await prisma.bot.findUnique({ where: { id: botRecord.id } });
-      await prisma.telegramUser.upsert({
-        where: { id_botId: { id: ctx.from.id.toString(), botId: botRecord.id } },
-        update: {
-          firstName: ctx.from.first_name,
-          lastName: ctx.from.last_name,
-          username: ctx.from.username,
-          lastStartedAt: new Date(),
-        },
-        create: {
-          id: ctx.from.id.toString(),
-          botId: botRecord.id,
-          firstName: ctx.from.first_name,
-          lastName: ctx.from.last_name,
-          username: ctx.from.username,
-          lastStartedAt: new Date(),
-        },
-      });
-      const savedWelcomeMedia = await prisma.welcomeMedia.findMany({
-        where: { botId: botRecord.id },
-        orderBy: { position: "asc" },
-      });
-
-      // Buscar produtos do bot
-      const products = await prisma.product.findMany({
-        where: { botId: botRecord.id, status: 'active' }
-      });
-
-      if (products.length === 0) {
-        return ctx.reply("Olá! No momento não temos produtos disponíveis.");
-      }
-
-      const message = currentBot?.welcomeMessage || `Bem-vindo à loja! Escolha um produto abaixo para comprar via Pix:`;
-      
-      const buttons = products.map(p => {
-        return [{ text: `${p.name} - R$ ${p.price.toFixed(2)}`, callback_data: `detail_${p.id}` }];
-      });
-
-      const welcomeMedia = savedWelcomeMedia.length > 0
-        ? savedWelcomeMedia
-        : currentBot?.welcomeMediaId && currentBot.welcomeMediaType
-          ? [{ fileId: currentBot.welcomeMediaId, mediaType: currentBot.welcomeMediaType }]
-          : [];
-
-      if (welcomeMedia.length > 0) {
-        try {
-          if (welcomeMedia.length === 1 && welcomeMedia[0].mediaType === "video") {
-            await ctx.replyWithVideo(welcomeMedia[0].fileId, { caption: message, reply_markup: { inline_keyboard: buttons } });
-            return;
-          }
-          if (welcomeMedia.length === 1) {
-            await ctx.replyWithPhoto(welcomeMedia[0].fileId, { caption: message, reply_markup: { inline_keyboard: buttons } });
-            return;
-          } else {
-            await ctx.replyWithMediaGroup(welcomeMedia.map((media) => ({
-              type: media.mediaType === "video" ? "video" : "photo",
-              media: media.fileId,
-            })));
-          }
-        } catch (mediaErr) {
-          console.error("Erro ao enviar mídias de boas-vindas:", mediaErr);
-        }
-      }
-
-      await ctx.reply(message, { reply_markup: { inline_keyboard: buttons } });
-    } catch (err) {
-      console.error(err);
-      ctx.reply("Ocorreu um erro ao buscar os produtos.");
-    }
-  });
+  registerStartMenu(bot, botRecord, prisma);
 
   bot.action(/^legacy_buy_(.+)$/, async (ctx) => {
     const productId = ctx.match[1];

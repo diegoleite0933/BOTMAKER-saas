@@ -30,8 +30,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const description = typeof body.description === "string" ? body.description.trim() : "";
     const price = Number(body.price);
+    const discountPercent = Number(body.discountPercent || 0);
     const botId = typeof body.botId === "string" ? body.botId : "";
     const status = body.status;
+    const isOrderBumpOnly = body.isOrderBumpOnly === true;
     const orderBumpProductId = typeof body.orderBumpProductId === "string" && body.orderBumpProductId ? body.orderBumpProductId : null;
     const telegramMediaId = typeof body.telegramMediaId === "string" && body.telegramMediaId ? body.telegramMediaId : null;
     const telegramMediaType = body.telegramMediaType === "photo" || body.telegramMediaType === "video" ? body.telegramMediaType : null;
@@ -43,6 +45,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!name || name.length > 120 || !Number.isFinite(price) || price <= 0 || !botId) {
       return NextResponse.json({ message: "Confira o nome, o preço e o bot selecionado." }, { status: 400 });
     }
+    if (!Number.isInteger(discountPercent) || discountPercent < 0 || discountPercent > 90) {
+      return NextResponse.json({ message: "O desconto deve estar entre 0% e 90%." }, { status: 400 });
+    }
     if (status !== "active" && status !== "inactive") {
       return NextResponse.json({ message: "Status inválido." }, { status: 400 });
     }
@@ -51,6 +56,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     if ((deliveryType === "group" || deliveryType === "channel") ? !telegramChatId : !content) {
       return NextResponse.json({ message: "Preencha os dados da entrega." }, { status: 400 });
+    }
+    if (deliveryType === "text") {
+      return NextResponse.json({ message: "Ofertas devem ser acesso do Telegram ou produto com link externo." }, { status: 400 });
+    }
+    if (deliveryType === "file") {
+      try {
+        const externalUrl = new URL(content);
+        if (externalUrl.protocol !== "https:" && externalUrl.protocol !== "http:") throw new Error("invalid protocol");
+      } catch {
+        return NextResponse.json({ message: "Informe um link externo válido para o produto." }, { status: 400 });
+      }
     }
     if (durationDays !== null && (!Number.isInteger(durationDays) || durationDays < 1)) {
       return NextResponse.json({ message: "A duração deve ser um número inteiro positivo." }, { status: 400 });
@@ -70,11 +86,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         return NextResponse.json({ message: "Um produto não pode oferecer a si mesmo como order bump." }, { status: 400 });
       }
       const bumpProduct = await prisma.product.findFirst({
-        where: { id: orderBumpProductId, botId, status: "active" },
+        where: { id: orderBumpProductId, botId, status: "active", isOrderBumpOnly: true },
         select: { id: true },
       });
       if (!bumpProduct) {
-        return NextResponse.json({ message: "Selecione um produto ativo do mesmo bot para o order bump." }, { status: 400 });
+        return NextResponse.json({ message: "Selecione um produto ativo e exclusivo de order bump deste bot." }, { status: 400 });
       }
     }
 
@@ -85,8 +101,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           name,
           description: description || null,
           price,
+          discountPercent,
           botId,
           status,
+          isOrderBumpOnly,
           orderBumpProductId,
           telegramMediaId,
           telegramMediaType: telegramMediaId ? telegramMediaType : null,

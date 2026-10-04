@@ -10,6 +10,8 @@ type CampaignData = {
   message: string | null;
   delayDays: null;
   delayMinutes: number;
+  targetProductId: string | null;
+  discountPercent: number;
   mediaFileId: string | null;
   mediaType: "photo" | "video" | null;
   isActive: boolean;
@@ -27,6 +29,8 @@ function parseCampaign(body: Record<string, unknown>): { ok: true; value: Campai
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const message = typeof body.message === "string" ? body.message.trim() : "";
   const delayMinutes = Number(body.delayMinutes);
+  const targetProductId = typeof body.targetProductId === "string" && body.targetProductId ? body.targetProductId : null;
+  const discountPercent = Number(body.discountPercent || 0);
   const mediaFileId = typeof body.mediaFileId === "string" ? body.mediaFileId : "";
   const mediaType = body.mediaType === "photo" || body.mediaType === "video" ? body.mediaType : null;
   const isActive = body.isActive === true;
@@ -35,11 +39,17 @@ function parseCampaign(body: Record<string, unknown>): { ok: true; value: Campai
   if (!Number.isInteger(delayMinutes) || delayMinutes < 1 || delayMinutes > 525600) {
     return { ok: false, message: "O intervalo deve ser de 1 minuto a 365 dias após o pagamento." };
   }
+  if (!Number.isInteger(discountPercent) || discountPercent < 0 || discountPercent > 90) {
+    return { ok: false, message: "O desconto deve estar entre 0% e 90%." };
+  }
+  if ((targetProductId && discountPercent === 0) || (!targetProductId && discountPercent > 0)) {
+    return { ok: false, message: "Selecione um produto/acesso e informe o percentual do desconto." };
+  }
   if (message.length > 1000) return { ok: false, message: "A mensagem pode ter no máximo 1000 caracteres." };
   if (mediaFileId && !mediaType) return { ok: false, message: "Tipo de mídia inválido." };
   if (isActive && !message && !mediaFileId) return { ok: false, message: "Adicione uma mensagem ou mídia antes de ativar." };
 
-  return { ok: true, value: { name, message: message || null, delayDays: null, delayMinutes, mediaFileId: mediaFileId || null, mediaType, isActive } };
+  return { ok: true, value: { name, message: message || null, delayDays: null, delayMinutes, targetProductId, discountPercent, mediaFileId: mediaFileId || null, mediaType, isActive } };
 }
 
 export async function GET(request: Request) {
@@ -80,6 +90,13 @@ export async function POST(request: Request) {
 
   const parsed = parseCampaign(body);
   if (!parsed.ok) return NextResponse.json({ message: parsed.message }, { status: 400 });
+  if (parsed.value.targetProductId) {
+    const product = await prisma.product.findFirst({
+      where: { id: parsed.value.targetProductId, botId: bot.id, status: "active", isOrderBumpOnly: false },
+      select: { id: true },
+    });
+    if (!product) return NextResponse.json({ message: "Selecione um produto/acesso ativo deste bot." }, { status: 400 });
+  }
 
   const campaign = await prisma.remarketing.create({
     data: {
@@ -104,6 +121,13 @@ export async function PATCH(request: Request) {
 
   const parsed = parseCampaign(body);
   if (!parsed.ok) return NextResponse.json({ message: parsed.message }, { status: 400 });
+  if (parsed.value.targetProductId) {
+    const product = await prisma.product.findFirst({
+      where: { id: parsed.value.targetProductId, botId: bot.id, status: "active", isOrderBumpOnly: false },
+      select: { id: true },
+    });
+    if (!product) return NextResponse.json({ message: "Selecione um produto/acesso ativo deste bot." }, { status: 400 });
+  }
   const result = await prisma.remarketing.updateMany({
     where: { id: body.id, botId: bot.id },
     data: parsed.value,

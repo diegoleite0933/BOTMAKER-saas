@@ -1,28 +1,16 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Brand } from "@/components/Brand";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { LandingNavigation } from "@/components/LandingNavigation";
 
 export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-slate-950 text-slate-50 selection:bg-blue-500/30">
-      <header className="px-6 py-4 flex justify-between items-center border-b border-slate-800/50 backdrop-blur-md sticky top-0 z-50">
-        <h1 className="text-2xl tracking-tighter">
+      <header className="sticky top-0 z-50 flex items-center justify-between gap-3 border-b border-slate-800/50 px-3 py-3 backdrop-blur-md sm:px-6 sm:py-4">
+        <Link href="/" className="min-w-0 text-lg sm:text-2xl">
           <Brand className="text-white" />
-        </h1>
-        <div className="space-x-4">
-          <ThemeToggle className="align-middle" />
-          <Link href="/login">
-            <Button variant="ghost" className="text-slate-300 hover:text-white hover:bg-slate-800">
-              Entrar
-            </Button>
-          </Link>
-          <Link href="/register">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-full px-6 shadow-[0_0_15px_rgba(37,99,235,0.3)]">
-              Começar Grátis
-            </Button>
-          </Link>
-        </div>
+        </Link>
+        <LandingNavigation />
       </header>
 
       <main className="flex-1 flex flex-col items-center text-center px-4 sm:px-6 lg:px-8 mt-24 mb-20 relative overflow-hidden">

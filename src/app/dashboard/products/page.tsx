@@ -85,7 +85,14 @@ export default async function ProductsPage() {
                       <span className="font-medium text-slate-900">{product.name}</span>
                       {product.description && <span className="mt-1 block max-w-sm truncate text-xs text-slate-500">{product.description}</span>}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap font-medium text-slate-900">R$ {product.price.toFixed(2)}</TableCell>
+                    <TableCell className="whitespace-nowrap font-medium text-slate-900">
+                      {product.discountPercent > 0 ? (
+                        <>
+                          <span className="block">R$ {(product.price * (1 - product.discountPercent / 100)).toFixed(2)}</span>
+                          <span className="text-xs text-slate-500 line-through">R$ {product.price.toFixed(2)} · -{product.discountPercent}%</span>
+                        </>
+                      ) : `R$ ${product.price.toFixed(2)}`}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap text-slate-600">
                       <span className="block">{product.bot.name}</span>
                       <span className="text-xs text-slate-500">@{product.bot.username}</span>
