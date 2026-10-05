@@ -5,8 +5,15 @@ import { authOptions } from "@/lib/auth";
 import { isAdminEmail } from "@/lib/account-security";
 import { decryptPaymentCredentials, encryptPaymentCredentials } from "@/lib/payment-credentials.js";
 import { mercadoPagoCallbackUrl } from "@/lib/mercadopago-marketplace.js";
+import { exchangeSyncPayAccessToken } from "@/lib/syncpay.js";
 
 const prisma = new PrismaClient();
+const supportedProviders = new Set(["mercadopago", "syncpay"]);
+
+function normalizeProvider(provider: string | null | undefined) {
+  if (provider === "syncpay") return "syncpay";
+  return "mercadopago";
+}
 
 async function isAuthorizedPlatformAdmin() {
   const session = await getServerSession(authOptions);
@@ -14,11 +21,12 @@ async function isAuthorizedPlatformAdmin() {
   return Boolean(user?.id && !user.isBanned && isAdminEmail(session?.user?.email));
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!(await isAuthorizedPlatformAdmin())) return NextResponse.json({ message: "Não autorizado." }, { status: 403 });
 
+  const provider = normalizeProvider(new URL(request.url).searchParams.get("provider"));
   const account = await prisma.platformReceivingAccount.findUnique({
-    where: { provider: "mercadopago" },
+    where: { provider },
     select: { encryptedCredentials: true, status: true, lastValidatedAt: true, updatedAt: true },
   });
   let configured = false;
@@ -31,14 +39,18 @@ export async function GET() {
     }
   }
 
+  const isSyncPay = provider === "syncpay";
+
   return NextResponse.json({
-    provider: "mercadopago",
+    provider,
     configured,
     status: configured ? account?.status || "CREDENTIALS_SAVED" : "NOT_CONFIGURED",
     lastValidatedAt: account?.lastValidatedAt || null,
     updatedAt: account?.updatedAt || null,
-    redirectUri: mercadoPagoCallbackUrl(),
-    splitStatus: "O Split 1:1 também exige que cada tenant autorize o Marketplace via OAuth.",
+    redirectUri: isSyncPay ? null : mercadoPagoCallbackUrl(),
+    splitStatus: isSyncPay
+      ? "Configuração manual via Client ID e Client Secret da SyncPay; o split automatizado depende da API e do fluxo do gateway configurado."
+      : "O Split 1:1 também exige que cada tenant autorize o Marketplace via OAuth.",
   });
 }
 
@@ -46,10 +58,11 @@ export async function PUT(request: Request) {
   if (!(await isAuthorizedPlatformAdmin())) return NextResponse.json({ message: "Não autorizado." }, { status: 403 });
 
   const body = await request.json();
-  if (body.provider !== "mercadopago") return NextResponse.json({ message: "Gateway da conta recebedora não suportado." }, { status: 400 });
+  const provider = normalizeProvider(typeof body.provider === "string" ? body.provider : null);
+  if (!supportedProviders.has(provider)) return NextResponse.json({ message: "Gateway da conta recebedora não suportado." }, { status: 400 });
 
   const previous = await prisma.platformReceivingAccount.findUnique({
-    where: { provider: "mercadopago" },
+    where: { provider },
     select: { encryptedCredentials: true },
   });
   let previousCredentials: Record<string, string> = {};
@@ -63,9 +76,24 @@ export async function PUT(request: Request) {
   const clientId = typeof body.clientId === "string" && body.clientId.trim() ? body.clientId.trim() : previousCredentials.clientId || "";
   const clientSecret = typeof body.clientSecret === "string" && body.clientSecret.trim() ? body.clientSecret.trim() : previousCredentials.clientSecret || "";
   const webhookSecret = typeof body.webhookSecret === "string" && body.webhookSecret.trim() ? body.webhookSecret.trim() : previousCredentials.webhookSecret || "";
-  if (!clientId || !clientSecret || clientId.length > 2048 || clientSecret.length > 2048 || webhookSecret.length > 2048) {
-    return NextResponse.json({ message: "Informe Client ID e Client Secret válidos do aplicativo Marketplace." }, { status: 400 });
+
+  if (provider === "syncpay") {
+    if (!clientId || !clientSecret || clientId.length > 2048 || clientSecret.length > 2048 || webhookSecret.length > 2048) {
+      return NextResponse.json({ message: "Informe Client ID e Client Secret válidos da SyncPay." }, { status: 400 });
+    }
+
+    try {
+      await exchangeSyncPayAccessToken({ clientId, clientSecret });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Credenciais da SyncPay inválidas.";
+      return NextResponse.json({ message: `Credenciais da SyncPay inválidas: ${message}` }, { status: 400 });
+    }
+  } else {
+    if (!clientId || !clientSecret || clientId.length > 2048 || clientSecret.length > 2048 || webhookSecret.length > 2048) {
+      return NextResponse.json({ message: "Informe Client ID e Client Secret válidos do aplicativo Marketplace." }, { status: 400 });
+    }
   }
+
   const credentials = {
     clientId,
     clientSecret,
@@ -73,9 +101,9 @@ export async function PUT(request: Request) {
   };
 
   await prisma.platformReceivingAccount.upsert({
-    where: { provider: "mercadopago" },
+    where: { provider },
     create: {
-      provider: "mercadopago",
+      provider,
       encryptedCredentials: encryptPaymentCredentials(credentials),
       status: "CREDENTIALS_SAVED",
     },
@@ -86,5 +114,9 @@ export async function PUT(request: Request) {
     },
   });
 
-  return NextResponse.json({ message: "Credenciais da conta da plataforma salvas e cifradas. O Split Marketplace ainda depende do OAuth de cada tenant." });
+  const message = provider === "syncpay"
+    ? "Credenciais da conta receptora SyncPay salvas e validadas manualmente."
+    : "Credenciais da conta da plataforma salvas e cifradas. O Split Marketplace ainda depende do OAuth de cada tenant.";
+
+  return NextResponse.json({ message });
 }

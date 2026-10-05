@@ -70,6 +70,7 @@ function timestamp(value: string | null) {
 export function FinanceConsole() {
   const [data, setData] = useState<FinanceResponse | null>(null);
   const [receivingAccount, setReceivingAccount] = useState<ReceivingAccount | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<"mercadopago" | "syncpay">("syncpay");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
@@ -82,8 +83,8 @@ export function FinanceConsole() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  async function loadAccount() {
-    const response = await fetch("/api/admin/platform-fees/receiving-account", { cache: "no-store" });
+  async function loadAccount(provider: "mercadopago" | "syncpay" = selectedProvider) {
+    const response = await fetch(`/api/admin/platform-fees/receiving-account?provider=${provider}`, { cache: "no-store" });
     const result = await response.json();
     if (!response.ok) throw new Error(result.message || "Não foi possível carregar a conta recebedora.");
     setReceivingAccount(result);
@@ -107,7 +108,7 @@ export function FinanceConsole() {
     const loadInitial = async () => {
       try {
         const [accountResponse, ledgerResponse] = await Promise.all([
-          fetch("/api/admin/platform-fees/receiving-account", { cache: "no-store" }),
+          fetch(`/api/admin/platform-fees/receiving-account?provider=${selectedProvider}`, { cache: "no-store" }),
           fetch("/api/admin/platform-fees", { cache: "no-store" }),
         ]);
         const [account, ledger] = await Promise.all([accountResponse.json(), ledgerResponse.json()]);
@@ -122,7 +123,7 @@ export function FinanceConsole() {
     };
     void loadInitial();
     return () => { active = false; };
-  }, []);
+  }, [selectedProvider]);
 
   async function saveReceivingAccount(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -133,7 +134,7 @@ export function FinanceConsole() {
       const response = await fetch("/api/admin/platform-fees/receiving-account", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: "mercadopago", clientId, clientSecret, webhookSecret }),
+        body: JSON.stringify({ provider: selectedProvider, clientId, clientSecret, webhookSecret }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || "Não foi possível salvar a conta.");
@@ -141,7 +142,7 @@ export function FinanceConsole() {
       setClientSecret("");
       setWebhookSecret("");
       setMessage(result.message);
-      await loadAccount();
+      await loadAccount(selectedProvider);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Erro ao salvar as credenciais.");
     } finally {
@@ -190,22 +191,31 @@ export function FinanceConsole() {
         <CardContent className="grid gap-6 pt-5 lg:grid-cols-[1fr_1.2fr]">
           <div className="space-y-3 text-sm">
             <p>Status: <strong>{receivingAccount?.configured ? "CONFIGURADA" : "NÃO CONFIGURADA"}</strong></p>
-            <p>Gateway atual: <strong>Mercado Pago Marketplace</strong></p>
-            <p className="break-all">Redirect URI: <code>{receivingAccount?.redirectUri || "Carregando…"}</code></p>
-            <p className="text-xs text-slate-500">Split 1:1 também depende de aprovação/habilitação da aplicação Marketplace e do OAuth individual do tenant.</p>
+            <p>Gateway atual: <strong>{selectedProvider === "syncpay" ? "SyncPay" : "Mercado Pago Marketplace"}</strong></p>
+            <p className="break-all">Redirect URI: <code>{selectedProvider === "syncpay" ? "Configuração manual (Client ID / Secret)" : receivingAccount?.redirectUri || "Carregando…"}</code></p>
+            <p className="text-xs text-slate-500">{selectedProvider === "syncpay"
+              ? "Para a SyncPay, as credenciais são informadas manualmente e validadas pelo endpoint de autenticação do gateway."
+              : "Split 1:1 também depende de aprovação/habilitação da aplicação Marketplace e do OAuth individual do tenant."}</p>
           </div>
           <form onSubmit={saveReceivingAccount} className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="platform-mp-client-id">Client ID / APP ID</Label>
-              <Input id="platform-mp-client-id" value={clientId} onChange={(event) => setClientId(event.target.value)} placeholder={receivingAccount?.configured ? "Mantido se vazio" : "APP ID da aplicação Marketplace"} autoComplete="off" />
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="platform-receiving-provider">Gateway da conta recebedora</Label>
+              <select id="platform-receiving-provider" className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" value={selectedProvider} onChange={(event) => setSelectedProvider(event.target.value as "mercadopago" | "syncpay")}>
+                <option value="syncpay">SyncPay</option>
+                <option value="mercadopago">Mercado Pago</option>
+              </select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="platform-mp-client-secret">Client Secret</Label>
-              <Input id="platform-mp-client-secret" type="password" value={clientSecret} onChange={(event) => setClientSecret(event.target.value)} placeholder={receivingAccount?.configured ? "Mantido se vazio" : "Secret Key da aplicação Marketplace"} autoComplete="new-password" />
+              <Label htmlFor="platform-client-id">Client ID / APP ID</Label>
+              <Input id="platform-client-id" value={clientId} onChange={(event) => setClientId(event.target.value)} placeholder={receivingAccount?.configured ? "Mantido se vazio" : selectedProvider === "syncpay" ? "Client ID da SyncPay" : "APP ID da aplicação Marketplace"} autoComplete="off" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="platform-client-secret">Client Secret</Label>
+              <Input id="platform-client-secret" type="password" value={clientSecret} onChange={(event) => setClientSecret(event.target.value)} placeholder={receivingAccount?.configured ? "Mantido se vazio" : selectedProvider === "syncpay" ? "Client Secret da SyncPay" : "Secret Key da aplicação Marketplace"} autoComplete="new-password" />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="platform-mp-webhook-secret">Webhook secret (opcional)</Label>
-              <Input id="platform-mp-webhook-secret" type="password" value={webhookSecret} onChange={(event) => setWebhookSecret(event.target.value)} placeholder="Mantido se vazio; webhook ainda consulta a API oficial" autoComplete="new-password" />
+              <Label htmlFor="platform-webhook-secret">Webhook secret (opcional)</Label>
+              <Input id="platform-webhook-secret" type="password" value={webhookSecret} onChange={(event) => setWebhookSecret(event.target.value)} placeholder={selectedProvider === "syncpay" ? "Opcional; a validação usa o client secret do gateway" : "Mantido se vazio; webhook ainda consulta a API oficial"} autoComplete="new-password" />
             </div>
             <div className="sm:col-span-2">
               <Button type="submit" disabled={busy}>{busy ? "Salvando…" : "Salvar credenciais da plataforma"}</Button>
