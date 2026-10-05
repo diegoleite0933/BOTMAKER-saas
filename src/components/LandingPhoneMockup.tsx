@@ -17,13 +17,6 @@ export function LandingPhoneMockup() {
   return (
     <div className="landing-phone-scene relative mx-auto w-full max-w-[570px] px-1 py-5 sm:px-4 sm:py-8">
       <div aria-hidden="true" className="landing-phone-halo absolute inset-x-[13%] top-[12%] h-[68%] rounded-full" />
-      <div aria-hidden="true" className="landing-phone-orbit landing-phone-orbit-one absolute left-[3%] top-[28%] size-48 rounded-full" />
-      <div aria-hidden="true" className="landing-phone-orbit landing-phone-orbit-two absolute left-[12%] top-[37%] size-36 rounded-full" />
-
-      <div aria-hidden="true" className="landing-telegram-token absolute left-[5%] top-[24%] z-10 flex size-[76px] items-center justify-center rounded-full border border-[#1a6ee0]/70 bg-[#087bff] text-white shadow-[0_0_32px_rgba(22,131,255,0.48)] sm:left-[7%] sm:size-[90px]">
-        <Send className="size-8 -rotate-12 sm:size-10" fill="currentColor" strokeWidth={1.4} />
-      </div>
-
       <div className="landing-phone-float relative z-20 mx-auto w-[min(278px,68vw)] rounded-[43px] border border-[#4d6f91] bg-[linear-gradient(145deg,#12263a_0%,#05090e_18%,#020407_83%,#28527b_100%)] p-[6px] shadow-[0_28px_70px_rgba(0,0,0,0.8),0_0_34px_rgba(22,131,255,0.24)] sm:w-[286px] xl:-translate-x-[112px]">
         <div className="relative h-[530px] overflow-hidden rounded-[37px] border border-[#142536] bg-[#03070b] sm:h-[554px]">
           <div aria-hidden="true" className="absolute left-1/2 top-2 z-30 h-[22px] w-[104px] -translate-x-1/2 rounded-full border border-[#172536] bg-black" />
@@ -78,11 +71,6 @@ export function LandingPhoneMockup() {
         ))}
       </div>
 
-      <div aria-hidden="true" className="landing-helmet-medallion absolute bottom-[1%] right-[1%] z-10 hidden size-[102px] items-center justify-center rounded-full border border-[#376b9e] bg-[radial-gradient(circle_at_35%_28%,#193754,#060a0f_72%)] shadow-[0_0_28px_rgba(16,108,208,0.27),inset_0_0_18px_rgba(71,152,231,0.2)] xl:flex xl:bottom-[2%] xl:right-[4%] xl:size-[124px]">
-        <span className="absolute inset-[7px] rounded-full border border-[#284d70]" />
-        <span className="absolute inset-[13px] rounded-full border border-[#1b3853]" />
-        <HelmetMark className="relative z-10 size-[68px] sm:size-[82px]" />
-      </div>
     </div>
   );
 }

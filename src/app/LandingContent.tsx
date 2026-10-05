@@ -15,33 +15,32 @@ import {
 import { Button } from "@/components/ui/button";
 import { Brand } from "@/components/Brand";
 import { LandingNavigation } from "@/components/LandingNavigation";
-import { LandingCalculator } from "@/components/LandingCalculator";
 import { LandingPhoneMockup } from "@/components/LandingPhoneMockup";
 
 const capabilities = [
   { icon: Bot, title: "Bots e entregas", description: "Controle clientes, acessos e entregas em um só lugar." },
-  { icon: WalletCards, title: "PIX + recorrência", description: "Cobranças automáticas e pagamentos com confirmação em backend." },
+  { icon: WalletCards, title: "Pagamentos PIX", description: "Gere cobranças e acompanhe a confirmação pelo backend." },
   { icon: MessageSquareText, title: "Remarketing", description: "Reative leads em momentos certos com ofertas inteligentes." },
   { icon: ShieldCheck, title: "Segurança", description: "Credenciais protegidas e isolamento por tenant." },
 ];
 
 const integrationList = [
-  { name: "Mercado Pago", status: "Disponível" },
-  { name: "AmploPay", status: "Disponível" },
-  { name: "PIX Direto", status: "Disponível" },
-  { name: "SyncPay", status: "Disponível" },
-  { name: "Pushin Pay", status: "Em breve" },
-  { name: "Átomo Pay", status: "Em breve" },
-  { name: "Nexus Wallet", status: "Em breve" },
-  { name: "Stripe", status: "Em breve" },
-  { name: "Oasy Pay", status: "Em breve" },
+  { name: "Mercado Pago", mark: "MP", status: "Disponível", available: true },
+  { name: "AmploPay", mark: "A", status: "Disponível", available: true },
+  { name: "PIX Direto", mark: "PIX", status: "Disponível · isento", available: true },
+  { name: "SyncPay", mark: "S", status: "Disponível", available: true },
+  { name: "Pushin Pay", mark: "P", status: "Em breve", available: false },
+  { name: "Átomo Pay", mark: "Á", status: "Em breve", available: false },
+  { name: "Nexus Wallet", mark: "N", status: "Em breve", available: false },
+  { name: "Stripe", mark: "S", status: "Em breve", available: false },
+  { name: "Oasy Pay", mark: "O", status: "Em breve", available: false },
 ];
 
 const processFlow = [
   ["01", "Crie sua conta", "Cadastre sua conta e configure o seu perfil de operação."],
   ["02", "Configure o bot", "Conecte um bot do Telegram e personalize o canal de acesso."],
-  ["03", "Conecte o gateway", "Use SyncPay, Mercado Pago ou outros gateways disponíveis."],
-  ["04", "Crie o produto", "Defina preço, acesso, recorrência e regras de entrega."],
+  ["03", "Conecte o gateway", "Use Mercado Pago, AmploPay, PIX Direto ou SyncPay."],
+  ["04", "Crie o produto", "Defina preço, acesso e regras de entrega."],
   ["05", "Venda pelo Telegram", "O bot gera a cobrança e libera o acesso automaticamente."],
 ];
 
@@ -55,7 +54,7 @@ const faq = [
   { question: "O que é o Odisseia Bot?", answer: "É uma solução SaaS para vender produtos e acessos pelo Telegram com pagamentos, automações e controle de clientes em um painel centralizado." },
   { question: "Preciso programar para usar?", answer: "Não. O cliente conecta sua conta do gateway, cria o bot e configura o produto na própria interface do painel." },
   { question: "Como o pagamento é confirmado?", answer: "O sistema valida a transação no backend, confirma o status e libera o acesso apenas depois da validação real do gateway." },
-  { question: "Posso vender recorrência?", answer: "Sim. A estrutura foi pensada para suportar produtos únicos e assinatura recorrente, com renovação e regras de inadimplência." },
+  { question: "Posso vender recorrência?", answer: "A cobrança recorrente automática ainda não está disponível. Os produtos atuais geram cobranças PIX avulsas." },
   { question: "A plataforma é multi-tenant?", answer: "Sim. Cada cliente mantém seu próprio fluxo de configuração e credenciais, com isolamento entre contas e transações." },
 ];
 
@@ -87,7 +86,7 @@ export function LandingContent() {
             </h1>
 
             <p className="mt-6 max-w-[560px] text-base leading-relaxed text-[#8ea3b8] sm:text-lg">
-              Crie bots, receba pagamentos, libere acessos, automatize assinaturas e gerencie clientes em uma plataforma SaaS profissional e segura.
+              Crie bots, receba pagamentos PIX, libere acessos e gerencie clientes em uma plataforma SaaS profissional e segura.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -107,22 +106,12 @@ export function LandingContent() {
             <div className="mt-8 flex flex-wrap gap-x-4 gap-y-2 text-[11px] uppercase tracking-[0.12em] text-[#9bb3d1]">
               <span className="inline-flex items-center gap-2"><Check aria-hidden="true" className="size-3.5 text-[#5aa9ff]" /> bots Telegram</span>
               <span className="inline-flex items-center gap-2"><Check aria-hidden="true" className="size-3.5 text-[#5aa9ff]" /> pagamentos PIX</span>
-              <span className="inline-flex items-center gap-2"><Check aria-hidden="true" className="size-3.5 text-[#5aa9ff]" /> faturamento recorrente</span>
+              <span className="inline-flex items-center gap-2"><Check aria-hidden="true" className="size-3.5 text-[#5aa9ff]" /> pagamentos confirmados</span>
             </div>
           </div>
 
           <div className="relative z-10 flex justify-center lg:justify-end">
             <div className="premium-float relative w-full max-w-[560px]">
-              <div className="absolute -left-4 top-10 hidden rounded-2xl border border-[#1d2c42] bg-[#071018]/85 px-4 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.45)] backdrop-blur-md lg:block">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-[#7fa9d8]">Pagamentos</p>
-                <p className="mt-1 text-2xl font-semibold tracking-[-0.06em] text-white">+R$ 18,4K</p>
-              </div>
-
-              <div className="absolute -right-2 bottom-12 hidden rounded-2xl border border-[#1d2c42] bg-[#071018]/85 px-4 py-3 shadow-[0_18px_40px_rgba(0,0,0,0.45)] backdrop-blur-md xl:block">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-[#7fa9d8]">Status</p>
-                <p className="mt-1 flex items-center gap-2 text-base font-medium text-white"><span className="inline-flex size-2.5 rounded-full bg-[#4ade80]" /> Ativo</p>
-              </div>
-
               <LandingPhoneMockup />
             </div>
           </div>
@@ -148,7 +137,7 @@ export function LandingContent() {
                   {[
                     ["Pagamento confirmado", "Webhook validado e transação aprovada."],
                     ["Acesso liberado", "Grupo, canal, link ou produto entregue ao cliente."],
-                    ["Renovação ativa", "Cobranças recorrentes com controle de vencimento."],
+                    ["Acompanhamento", "Histórico de pedidos e status de pagamento."],
                   ].map(([title, text]) => (
                     <div key={title} className="rounded-2xl border border-white/8 bg-[#0b131b] p-4">
                       <div className="flex items-center gap-3">
@@ -218,7 +207,7 @@ export function LandingContent() {
                     "Autenticação real pela API SyncPay",
                     "PIX gerado pelo backend",
                     "Webhooks validados e idempotentes",
-                    "Pagamentos e assinaturas com isolamento por conta",
+                    "Pagamentos e webhooks por conta conectada",
                   ].map((item) => (
                     <div key={item} className="flex items-center gap-3 rounded-2xl border border-white/8 bg-[#0a1118] px-4 py-3 text-sm text-[#dce7f7]">
                       <span className="flex size-6 items-center justify-center rounded-full bg-[#143d6d] text-[#7bb5ff]">✓</span>
@@ -230,18 +219,19 @@ export function LandingContent() {
 
               <div className="relative rounded-[32px] border border-[#1a2a3d] bg-[radial-gradient(circle_at_center,_rgba(47,128,255,0.18),rgba(7,11,17,0.96)_48%)] p-6 shadow-[0_24px_80px_rgba(8,45,90,0.2)]">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {integrationList.map(({ name, status }) => (
+                  {integrationList.map(({ name, mark, status, available }) => (
                     <div
                       key={name}
-                      className={`flex items-center justify-between rounded-2xl border px-4 py-3 ${
-                        status === "Disponível"
+                      className={`flex min-w-0 items-center gap-3 rounded-2xl border px-4 py-3 ${
+                        available
                           ? "border-[#1d3d5e] bg-[#0d1d2d] text-white"
                           : "border-white/10 bg-[#0b1118] text-[#8ea3b8]"
                       }`}
                     >
-                      <span className="text-sm font-medium">{name}</span>
-                      <span className={`rounded-full border px-2 py-1 text-[9px] uppercase tracking-[0.12em] ${
-                        status === "Disponível"
+                      <span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-black/30 text-[10px] font-bold text-white">{mark}</span>
+                      <span className="min-w-0 flex-1 text-sm font-medium">{name}</span>
+                      <span className={`shrink-0 rounded-full border px-2 py-1 text-[9px] uppercase tracking-[0.12em] ${
+                        available
                           ? "border-[#1a4e3b] bg-[#0d1f19] text-[#7be4af]"
                           : "border-white/10 bg-[#111821] text-[#9caabd]"
                       }`}>
@@ -281,7 +271,7 @@ export function LandingContent() {
                 { icon: LockKeyhole, title: "Credenciais protegidas", description: "Segredo do cliente nunca exposto no frontend." },
                 { icon: TrendingUp, title: "Escala do SaaS", description: "Estrutura preparada para múltiplos clientes e contas sincronizadas." },
                 { icon: Zap, title: "Automação confiável", description: "Validação e processamento no backend para evitar fraudes e duplicidades." },
-                { icon: CreditCard, title: "Cobrança real", description: "PIX, recorrência e confirmação por evento de pagamento autenticado." },
+                { icon: CreditCard, title: "Cobrança real", description: "PIX e confirmação de pagamento pelo backend." },
               ].map(({ icon: Icon, title, description }) => (
                 <article key={title} className="rounded-[26px] border border-white/10 bg-[#0b1117] p-5">
                   <div className="flex size-11 items-center justify-center rounded-2xl border border-[#1d3551] bg-[#0d1a2b] text-[#67afff]">

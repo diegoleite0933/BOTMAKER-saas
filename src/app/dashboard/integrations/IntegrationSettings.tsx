@@ -15,6 +15,8 @@ type Provider = {
   environmentFallback: boolean;
   lastTestAt: string | null;
   lastTestStatus: string | null;
+  marketplaceReady?: boolean;
+  marketplaceConnected?: boolean;
 };
 
 type CredentialField = { key: string; label: string; placeholder: string; description?: string };
@@ -201,6 +203,10 @@ export function IntegrationSettings() {
 
                 {provider.environmentFallback && <p className="mt-2 text-xs text-amber-600">Há uma credencial global de ambiente ativa; o valor não é exibido.</p>}
 
+                {provider.id === "mercadopago" && provider.marketplaceConnected && (
+                  <p className="mt-2 text-xs text-emerald-700">Conta conectada por OAuth Marketplace. Cobranças novas podem solicitar o split fixo de R$0,30 quando a aplicação estiver habilitada.</p>
+                )}
+
                 {isEditing && fields.length > 0 ? (
                   <div className="mt-4 space-y-3 border-t border-slate-200 pt-4">
                     {fields.map((field) => (
@@ -238,6 +244,14 @@ export function IntegrationSettings() {
                       <button type="button" onClick={() => void test(provider)} disabled={busy} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50">
                         {busy ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <ExternalLink aria-hidden="true" className="size-4" />} Testar conexão
                       </button>
+                    )}
+                    {provider.id === "mercadopago" && provider.marketplaceReady && !provider.marketplaceConnected && (
+                      <a href="/api/integrations/mercadopago/connect" className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100">
+                        <ExternalLink aria-hidden="true" className="size-4" /> Conectar Marketplace OAuth
+                      </a>
+                    )}
+                    {provider.id === "mercadopago" && !provider.marketplaceReady && (
+                      <p className="basis-full text-xs text-slate-500">Split Marketplace indisponível até a plataforma configurar sua aplicação no painel administrativo.</p>
                     )}
                     {provider.configured && (
                       <button type="button" onClick={() => void disconnect(provider)} disabled={busy} className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-600 transition-colors hover:border-rose-300 hover:text-rose-600 disabled:opacity-50">

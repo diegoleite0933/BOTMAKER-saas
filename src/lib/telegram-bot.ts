@@ -321,12 +321,6 @@ export function getBot(botRecord: Bot): Telegraf {
     }
   });
 
-  // Ação de Simular Pagamento (Teste Local)
-  bot.action(/^simulate_pay_(.+)_(.+)$/, async (ctx) => {
-    // mantido para retrocompatibilidade em dev
-    await ctx.reply("Teste local finalizado. Verifique webhook.");
-  });
-
   // Recebimento de Comprovantes (Pix Direto)
   bot.on('photo', async (ctx) => {
     try {

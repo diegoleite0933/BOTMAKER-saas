@@ -379,17 +379,6 @@ body {
   animation: landing-halo-pulse 6s ease-in-out infinite;
 }
 
-.landing-phone-orbit {
-  border: 1px solid rgba(22, 131, 255, 0.28);
-  box-shadow: 0 0 22px rgba(8, 123, 255, 0.08), inset 0 0 20px rgba(8, 123, 255, 0.04);
-  transform: rotate(-24deg) scaleX(0.66);
-}
-
-.landing-phone-orbit-two {
-  border-color: rgba(47, 145, 255, 0.22);
-  transform: rotate(31deg) scaleX(0.72);
-}
-
 .landing-toast {
   animation: landing-toast-enter 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }

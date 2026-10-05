@@ -28,8 +28,22 @@ async function createMercadoPagoPix({
   notificationUrl,
   payerEmail,
   payerName,
+  applicationFeeCents,
   fetchImpl = fetch,
 }) {
+  const requestBody = {
+    transaction_amount: Number(amount.toFixed(2)),
+    description,
+    payment_method_id: "pix",
+    notification_url: notificationUrl,
+    payer: {
+      email: payerEmail,
+      first_name: payerName,
+    },
+    ...(Number.isInteger(applicationFeeCents) && applicationFeeCents > 0
+      ? { application_fee: applicationFeeCents / 100 }
+      : {}),
+  };
   const response = await fetchImpl(mercadoPagoEndpoint, {
     method: "POST",
     headers: {
@@ -37,16 +51,7 @@ async function createMercadoPagoPix({
       Authorization: `Bearer ${accessToken}`,
       "X-Idempotency-Key": orderId,
     },
-    body: JSON.stringify({
-      transaction_amount: Number(amount.toFixed(2)),
-      description,
-      payment_method_id: "pix",
-      notification_url: notificationUrl,
-      payer: {
-        email: payerEmail,
-        first_name: payerName,
-      },
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   const data = await readJsonResponse(response, "Mercado Pago");
@@ -61,6 +66,7 @@ async function createMercadoPagoPix({
     pixCode: transaction.qr_code,
     qrCodeBase64: transaction.qr_code_base64 || null,
     ticketUrl: transaction.ticket_url || null,
+    applicationFeeCents: Number.isInteger(applicationFeeCents) && applicationFeeCents > 0 ? applicationFeeCents : null,
   };
 }
 

@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { Telegraf } from "telegraf";
 import { deliverPaidOrder } from "@/lib/product-delivery.js";
-import { resolvePaymentCredentials } from "@/lib/payment-credentials.js";
+import { resolvePaymentCredentials, resolvePlatformReceivingCredentials } from "@/lib/payment-credentials.js";
+import { markPlatformFeeReceived, recordPlatformFeeRefund } from "@/lib/platform-fees.js";
+import { verifyMercadoPagoWebhookSignature } from "@/lib/mercadopago-marketplace.js";
 
 const prisma = new PrismaClient();
 
@@ -29,7 +31,16 @@ export async function POST(req: Request) {
     }
 
     // Use the same bot-specific credential that created the payment.
-    const { accessToken: mpAccessToken } = await resolvePaymentCredentials(prisma, order.bot, "mercadopago");
+    const credentials = await resolvePaymentCredentials(prisma, order.bot, "mercadopago");
+    const platformCredentials = await resolvePlatformReceivingCredentials(prisma, "mercadopago");
+    const webhookSecret = credentials.webhookSecret || platformCredentials?.webhookSecret || process.env.MERCADOPAGO_WEBHOOK_SECRET;
+    const signature = req.headers.get("x-signature");
+    const requestId = req.headers.get("x-request-id");
+    if (webhookSecret && !verifyMercadoPagoWebhookSignature({ signature, requestId, dataId: paymentId.toString(), secret: webhookSecret })) {
+      return NextResponse.json({ message: "Assinatura Mercado Pago inválida." }, { status: 401 });
+    }
+
+    const mpAccessToken = credentials.accessToken;
     if (!mpAccessToken) {
       return NextResponse.json({ message: "Credencial do Mercado Pago não configurada" }, { status: 503 });
     }
@@ -52,7 +63,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Os dados do pagamento não correspondem ao pedido." }, { status: 400 });
     }
 
-    const eventKey = { source: "mercadopago", eventId: paymentId.toString() };
+    const eventKey = { source: "mercadopago", eventId: `${paymentId}:${String(status)}` };
     await prisma.webhookEvent.upsert({
       where: { source_eventId: eventKey },
       create: { ...eventKey, payload: JSON.stringify(body), status: "pending" },
@@ -60,21 +71,45 @@ export async function POST(req: Request) {
     });
 
     if (status === "approved") {
-      if (order.status !== "paid") {
+      const applicationFeeCents = Number.isFinite(Number(paymentInfo.application_fee))
+        ? Math.round(Number(paymentInfo.application_fee) * 100)
+        : null;
+      const splitConfirmed = order.platformFeeSplitRequested === true && applicationFeeCents === 30;
+      if (!["paid", "refunded"].includes(order.status)) {
         const bot = new Telegraf(order.bot.token);
-        await deliverPaidOrder({ prisma, bot, order });
+        await deliverPaidOrder({
+          prisma,
+          bot,
+          order,
+          splitConfirmed,
+          splitReference: splitConfirmed ? String(paymentInfo.id) : null,
+        });
+      } else if (order.status === "paid" && splitConfirmed) {
+        const result = await prisma.$transaction((transaction) => markPlatformFeeReceived(transaction, order, {
+          confirmedAmountCents: applicationFeeCents,
+          providerReference: String(paymentInfo.id),
+        }));
+        if (result.received) {
+          console.info(`[PLATFORM_FEE] tenant=${order.bot.workspaceId} gateway=mercadopago transaction=${paymentInfo.id} sale=${order.id} fee=30 status=RECEIVED`);
+        }
+      }
+    } else if (status === "refunded" || status === "charged_back") {
+      const result = await prisma.$transaction(async (transaction) => {
+        await transaction.order.updateMany({ where: { id: order.id, status: "paid" }, data: { status: "refunded" } });
+        return recordPlatformFeeRefund(transaction, order, { refundReference: String(paymentInfo.id) });
+      });
+      if (result.created) {
+        console.info(`[PLATFORM_FEE] tenant=${order.bot.workspaceId} gateway=mercadopago transaction=${paymentInfo.id} sale=${order.id} fee=${result.amountCents} status=REFUND_ADJUSTMENT`);
       }
     } else {
       const statusByPayment = {
         rejected: "failed",
         cancelled: "cancelled",
         canceled: "cancelled",
-        refunded: "refunded",
-        charged_back: "refunded",
       } as const;
       const orderStatus = statusByPayment[status as keyof typeof statusByPayment] || "pending";
       await prisma.order.updateMany({
-        where: { id: order.id, status: { not: "paid" } },
+        where: { id: order.id, status: { in: ["pending", "review"] } },
         data: { status: orderStatus },
       });
     }

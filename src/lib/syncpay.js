@@ -12,6 +12,7 @@ function normalizeSyncPayStatus(status) {
 
   const map = {
     approved: "paid",
+    completed: "paid",
     paid: "paid",
     success: "paid",
     processing: "pending",

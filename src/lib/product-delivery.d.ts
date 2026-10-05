@@ -17,6 +17,12 @@ type PaidOrder = {
   id: string;
   botId: string;
   telegramUserId: string;
+  paymentId?: string | null;
+  paymentGateway?: string;
+  billingType?: string;
+  recurringInterval?: string | null;
+  platformFeeSplitRequested?: boolean;
+  bot: { workspaceId: string; paymentMethod?: string };
   product: DeliveryProduct;
   bumpProduct: DeliveryProduct | null;
 };
@@ -25,4 +31,6 @@ export function deliverPaidOrder(input: {
   prisma: PrismaClient;
   bot: Telegraf;
   order: PaidOrder;
+  splitConfirmed?: boolean;
+  splitReference?: string | null;
 }): Promise<boolean>;

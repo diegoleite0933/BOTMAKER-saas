@@ -410,48 +410,6 @@ async function startBot(botRecord) {
     }
   });
 
-  // Ação de Simular Pagamento
-  bot.action(/^simulate_pay_(.+)_(.+)$/, async (ctx) => {
-    const productId = ctx.match[1];
-    
-    try {
-      const product = await prisma.product.findUnique({ 
-        where: { id: productId },
-        include: { deliveries: true } 
-      });
-
-      if (!product) return ctx.answerCbQuery("Produto não encontrado.");
-
-      await ctx.answerCbQuery("Pagamento Aprovado!");
-      await ctx.reply("✅ *Pagamento Aprovado com Sucesso!*\n\nPreparando seu acesso...", { parse_mode: 'Markdown' });
-
-      // Entregar o acesso
-      const delivery = product.deliveries[0];
-      if (delivery && delivery.type === 'group' && delivery.telegramChatId) {
-        // O bot precisa gerar um link de convite único
-        try {
-          const inviteLink = await ctx.telegram.createChatInviteLink(delivery.telegramChatId, {
-            member_limit: 1, // apenas um uso
-            expire_date: Math.floor(Date.now() / 1000) + (60 * 60 * 24), // expira em 1 dia
-            name: `Acesso: ${ctx.from.first_name}`
-          });
-
-          await ctx.reply(`🎉 *Aqui está o seu acesso exclusivo:*\n\n${inviteLink.invite_link}\n\nEste link só pode ser usado 1 vez.`, {
-            parse_mode: 'Markdown'
-          });
-        } catch (chatErr) {
-          console.error("Erro ao gerar convite:", chatErr);
-          await ctx.reply("❌ Ocorreu um erro ao gerar o link do grupo. Verifique se o Bot é Administrador do Grupo e tem permissão para 'Convidar Usuários' via link.");
-        }
-      } else {
-        await ctx.reply("Este produto não possui um canal ou grupo configurado corretamente.");
-      }
-
-    } catch (err) {
-      console.error(err);
-    }
-  });
-
     bot.action(/^pix_review_(approve|reject)_(.+)$/, async (ctx) => {
       try {
         await handlePixReview(ctx, ctx.match[1], ctx.match[2], bot);

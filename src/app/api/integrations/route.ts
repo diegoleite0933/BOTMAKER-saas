@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { PrismaClient } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
-import { decryptPaymentCredentials, encryptPaymentCredentials } from "@/lib/payment-credentials.js";
+import { decryptPaymentCredentials, encryptPaymentCredentials, resolvePlatformReceivingCredentials } from "@/lib/payment-credentials.js";
 
 const prisma = new PrismaClient();
 const providerFields = {
@@ -41,13 +41,14 @@ export async function GET() {
   if (!userId) return NextResponse.json({ message: "Não autorizado." }, { status: 401 });
 
   const [integrations, syncpayConnections, bots] = await Promise.all([
-    prisma.paymentIntegration.findMany({ where: { userId }, select: { provider: true, lastTestAt: true, lastTestStatus: true } }),
+    prisma.paymentIntegration.findMany({ where: { userId }, select: { provider: true, encryptedCredentials: true, lastTestAt: true, lastTestStatus: true } }),
     prisma.syncPayConnection.findMany({ where: { userId }, select: { workspaceId: true, status: true, lastValidatedAt: true } }),
     prisma.bot.findMany({
       where: { workspace: { userId } },
       select: { mpAccessToken: true, amploPayClientId: true, amploPayClientSecret: true, pixKey: true },
     }),
   ]);
+  const marketplaceApplication = await resolvePlatformReceivingCredentials(prisma, "mercadopago");
   const saved = new Map(integrations.map((integration) => [integration.provider, integration]));
   const legacyCount = {
     mercadopago: bots.filter((bot) => !!bot.mpAccessToken).length,
@@ -64,6 +65,16 @@ export async function GET() {
     integrations: providerIds.map((provider) => ({
       id: provider,
       ...providerCatalog[provider],
+      marketplaceReady: provider === "mercadopago" && Boolean(marketplaceApplication?.clientId && marketplaceApplication?.clientSecret),
+      marketplaceConnected: provider === "mercadopago" && (() => {
+        const encryptedCredentials = saved.get(provider)?.encryptedCredentials;
+        if (!encryptedCredentials) return false;
+        try {
+          return decryptPaymentCredentials(encryptedCredentials).marketplaceOAuth === true;
+        } catch {
+          return false;
+        }
+      })(),
       configured: provider === "syncpay"
         ? syncpayConnections.length > 0
         : saved.has(provider) || (provider in legacyCount && legacyCount[provider as keyof typeof legacyCount] > 0) || environmentFallback[provider as keyof typeof environmentFallback] === true,

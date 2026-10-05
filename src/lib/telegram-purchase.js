@@ -1,4 +1,4 @@
-const { resolvePaymentCredentials } = require("./payment-credentials.js");
+const { resolvePaymentCredentials, resolvePlatformReceivingCredentials } = require("./payment-credentials.js");
 const { createPaymentWebhookSignature, createPixPayment } = require("./payment-service.js");
 
 function currency(amount) {
@@ -91,6 +91,10 @@ async function checkout(ctx, prisma, botRecord, product, bumpProduct, discountOv
     ...(bumpProduct ? [{ product: bumpProduct, price: salePrice(bumpProduct, bumpDiscountPercent) }] : []),
   ];
   const appUrl = process.env.APP_URL || "http://localhost:3000";
+  const platformCredentials = provider === "mercadopago" && credentials.marketplaceOAuth === true
+    ? await resolvePlatformReceivingCredentials(prisma, "mercadopago")
+    : null;
+  const applicationFeeCents = platformCredentials?.clientId && platformCredentials?.clientSecret ? 30 : null;
   const payment = await createPixPayment({
     provider,
     credentials,
@@ -99,6 +103,7 @@ async function checkout(ctx, prisma, botRecord, product, bumpProduct, discountOv
     description: productNames,
     billingType: product.billingType || "one_time",
     recurringInterval: product.billingType === "recurring" ? (product.recurringInterval || "monthly") : "monthly",
+    applicationFeeCents,
     notificationUrl: `${appUrl}/api/webhooks/${provider === "syncpay" ? "syncpay" : "mercadopago"}`,
     payerEmail: `tg_${ctx.from.id}@botmaker.local`,
     payerName: ctx.from.first_name || "Cliente Telegram",
@@ -129,6 +134,7 @@ async function checkout(ctx, prisma, botRecord, product, bumpProduct, discountOv
       webhookSignature: webhookSignature || undefined,
       billingType: orderData.billingType,
       recurringInterval: orderData.recurringInterval,
+      platformFeeSplitRequested: payment.platformFeeSplitRequested === true,
     },
   });
 

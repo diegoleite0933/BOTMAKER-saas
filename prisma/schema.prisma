@@ -26,6 +26,7 @@ model User {
   workspaces Workspace[]
   paymentIntegrations PaymentIntegration[]
   syncpayConnections SyncPayConnection[]
+  oauthStates OAuthState[]
 
   @@index([nickname])
   @@index([cpf])
@@ -66,6 +67,21 @@ model SyncPayConnection {
   @@index([workspaceId, status])
 }
 
+model OAuthState {
+  id          String    @id @default(cuid())
+  stateHash   String    @unique
+  provider    String
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([provider, expiresAt])
+}
+
 model Workspace {
   id        String   @id @default(cuid())
   name      String
@@ -73,6 +89,8 @@ model Workspace {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   bots      Bot[]
   syncpayConnections SyncPayConnection[]
+  oauthStates OAuthState[]
+  platformFees PlatformFeeLedger[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -205,14 +223,69 @@ model Order {
   paymentGateway String       @default("mercadopago")
   billingType    String       @default("one_time") // one_time, recurring
   recurringInterval String?    // monthly, quarterly, yearly
+  platformFeeSplitRequested Boolean @default(false)
   paymentId      String?      @unique // ID gerado pelo Mercado Pago
   webhookSignature String?
   paymentQrCode  String?
   paymentTicketUrl String?
   receiptUrl     String?      // Imagem do comprovante enviado (caso pix_direto)
+  platformFees   PlatformFeeLedger[]
   
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+}
+
+model PlatformFeeLedger {
+  id                    String    @id @default(cuid())
+  workspaceId           String
+  workspace             Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  orderId               String
+  order                 Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  gateway               String
+  providerTransactionId String
+  entryType             String
+  amountCents           Int
+  currency              String    @default("BRL")
+  status                String    @default("PENDING")
+  providerReference     String?
+  failureReason         String?
+  metadata              String?
+  idempotencyKey        String    @unique
+  paidAt                DateTime?
+  receivedAt            DateTime?
+  events                PlatformFeeEvent[]
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([workspaceId, gateway, providerTransactionId, entryType])
+  @@index([workspaceId, status, createdAt])
+  @@index([gateway, status, createdAt])
+  @@index([orderId, entryType])
+}
+
+model PlatformFeeEvent {
+  id          String           @id @default(cuid())
+  ledgerId    String
+  ledger      PlatformFeeLedger @relation(fields: [ledgerId], references: [id], onDelete: Restrict)
+  eventType   String
+  fromStatus  String?
+  toStatus    String
+  reference   String?
+  metadata    String?
+  createdAt   DateTime         @default(now())
+
+  @@index([ledgerId, createdAt])
+  @@index([eventType, createdAt])
+}
+
+model PlatformReceivingAccount {
+  id                    String   @id @default(cuid())
+  provider              String   @unique
+  encryptedCredentials  String?
+  status                String   @default("NOT_CONFIGURED")
+  lastValidatedAt       DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 // ==========================================

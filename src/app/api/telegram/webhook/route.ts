@@ -14,9 +14,13 @@ export async function POST(req: Request) {
 
   try {
     const update = await req.json();
-    
+
+    if (!update || typeof update !== "object" || !("update_id" in update)) {
+      return NextResponse.json({ error: "Webhook payload inválido." }, { status: 400 });
+    }
+
     // Check if duplicate webhook (idempotency)
-    const eventId = update.update_id.toString();
+    const eventId = String(update.update_id);
     const existing = await prisma.webhookEvent.findUnique({
       where: { source_eventId: { source: 'telegram', eventId } }
     });
@@ -41,7 +45,7 @@ export async function POST(req: Request) {
     }
 
     const bot = getBot(botRecord);
-    
+
     // Process Update
     await bot.handleUpdate(update);
 
@@ -51,8 +55,9 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
     console.error("Telegram Webhook Error:", err);
-    return NextResponse.json({ error: 'Internal Error', message: err.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Error', message }, { status: 500 });
   }
 }

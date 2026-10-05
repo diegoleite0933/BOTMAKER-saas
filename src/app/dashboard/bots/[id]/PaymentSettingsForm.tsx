@@ -57,7 +57,7 @@ export function PaymentSettingsForm({
             <option value="pix_direto">PIX Direto, com revisão manual</option>
             <option value="syncpay">SyncPay</option>
           </select>
-          <p className="text-xs text-slate-500">As credenciais são configuradas na área de integrações do usuário/workspace. O PIX Direto exige revisão manual; os demais gateways dependem de credenciais válidas.</p>
+          <p className="text-xs text-slate-500">Credenciais ficam em Integrações. A taxa da plataforma é R$0,30 por venda paga; PIX Direto é isento. Quando o gateway não confirma split, a taxa fica pendente e não é apresentada como recebida. PIX Direto exige revisão manual.</p>
         </div>
 
         {method === "pix_direto" && (

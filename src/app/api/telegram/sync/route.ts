@@ -7,9 +7,9 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const baseUrl = process.env.APP_URL || url.origin;
-    
+
     const bots = await prisma.bot.findMany();
-    
+
     for (const bot of bots) {
       const webhookUrl = `${baseUrl}/api/telegram/webhook?botId=${bot.id}`;
       const response = await fetch(`https://api.telegram.org/bot${bot.token}/setWebhook?url=${encodeURIComponent(webhookUrl)}`);
@@ -17,7 +17,8 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({ message: "Webhooks synchronized for all bots", baseUrl });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

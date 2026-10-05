@@ -12,6 +12,7 @@ const providerFactories = {
       notificationUrl: request.notificationUrl,
       payerEmail: request.payerEmail,
       payerName: request.payerName,
+      applicationFeeCents: request.applicationFeeCents,
       fetchImpl: request.fetchImpl,
     });
     return {
@@ -19,6 +20,7 @@ const providerFactories = {
       pixCode: payment.pixCode,
       qrCodeBase64: payment.qrCodeBase64,
       ticketUrl: payment.ticketUrl,
+      platformFeeSplitRequested: payment.applicationFeeCents === 30,
     };
   },
   amplopay: async (request) => {

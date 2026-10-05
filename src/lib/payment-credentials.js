@@ -64,6 +64,61 @@ function readEnvValue(...keys) {
   return "";
 }
 
+async function resolvePlatformReceivingCredentials(prisma, provider) {
+  if (!prisma?.platformReceivingAccount) return null;
+  const account = await prisma.platformReceivingAccount.findUnique({
+    where: { provider },
+    select: { encryptedCredentials: true, status: true },
+  });
+  if (!account?.encryptedCredentials) return null;
+  try {
+    return { ...decryptPaymentCredentials(account.encryptedCredentials), status: account.status };
+  } catch {
+    return null;
+  }
+}
+
+async function refreshMarketplaceAccessToken(prisma, userId, credentials) {
+  if (!credentials.marketplaceOAuth || !credentials.refreshToken) return credentials;
+  const expiresAt = Date.parse(credentials.expiresAt || "");
+  if (!Number.isFinite(expiresAt) || expiresAt > Date.now() + 60_000) return credentials;
+
+  const platformCredentials = await resolvePlatformReceivingCredentials(prisma, "mercadopago");
+  if (!platformCredentials?.clientId || !platformCredentials?.clientSecret) {
+    throw new Error("A conexão Mercado Pago Marketplace da plataforma não está configurada.");
+  }
+
+  const response = await fetch("https://api.mercadopago.com/oauth/token", {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: platformCredentials.clientId,
+      client_secret: platformCredentials.clientSecret,
+      grant_type: "refresh_token",
+      refresh_token: credentials.refreshToken,
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+  const result = await response.json();
+  if (!response.ok || !result.access_token || !result.refresh_token) {
+    throw new Error("Não foi possível renovar a autorização OAuth do Mercado Pago. Reconecte a conta.");
+  }
+
+  const refreshed = {
+    ...credentials,
+    accessToken: result.access_token,
+    refreshToken: result.refresh_token,
+    publicKey: result.public_key || credentials.publicKey || null,
+    collectorId: String(result.user_id || credentials.collectorId),
+    expiresAt: new Date(Date.now() + Number(result.expires_in || 15552000) * 1000).toISOString(),
+  };
+  await prisma.paymentIntegration.update({
+    where: { userId_provider: { userId, provider: "mercadopago" } },
+    data: { encryptedCredentials: encryptPaymentCredentials(refreshed) },
+  });
+  return refreshed;
+}
+
 async function resolvePaymentCredentials(prisma, bot, provider) {
   const workspace = await prisma.workspace.findUnique({
     where: { id: bot.workspaceId },
@@ -75,7 +130,12 @@ async function resolvePaymentCredentials(prisma, bot, provider) {
       where: { userId_provider: { userId: workspace.userId, provider } },
       select: { encryptedCredentials: true },
     });
-    if (integration) return decryptPaymentCredentials(integration.encryptedCredentials);
+    if (integration) {
+      const credentials = decryptPaymentCredentials(integration.encryptedCredentials);
+      return provider === "mercadopago"
+        ? refreshMarketplaceAccessToken(prisma, workspace.userId, credentials)
+        : credentials;
+    }
   }
 
   if (provider === "mercadopago") return { accessToken: bot.mpAccessToken || readEnvValue("MERCADOPAGO_ACCESS_TOKEN") || "" };
@@ -98,4 +158,9 @@ async function resolvePaymentCredentials(prisma, bot, provider) {
   return {};
 }
 
-module.exports = { decryptPaymentCredentials, encryptPaymentCredentials, resolvePaymentCredentials };
+module.exports = {
+  decryptPaymentCredentials,
+  encryptPaymentCredentials,
+  resolvePaymentCredentials,
+  resolvePlatformReceivingCredentials,
+};
