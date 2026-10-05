@@ -327,6 +327,62 @@
   background-color: #1d4ed8;
 }
 
+@keyframes landing-phone-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes landing-toast-enter {
+  from { opacity: 0; transform: translate3d(18px, 8px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes landing-halo-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.82; }
+}
+
+.landing-phone-float {
+  animation: landing-phone-float 7s ease-in-out infinite;
+}
+
+.landing-phone-halo {
+  background: radial-gradient(ellipse, rgba(8, 123, 255, 0.26) 0%, rgba(8, 123, 255, 0.1) 34%, transparent 72%);
+  filter: blur(28px);
+  animation: landing-halo-pulse 6s ease-in-out infinite;
+}
+
+.landing-phone-orbit {
+  border: 1px solid rgba(22, 131, 255, 0.28);
+  box-shadow: 0 0 22px rgba(8, 123, 255, 0.08), inset 0 0 20px rgba(8, 123, 255, 0.04);
+  transform: rotate(-24deg) scaleX(0.66);
+}
+
+.landing-phone-orbit-two {
+  border-color: rgba(47, 145, 255, 0.22);
+  transform: rotate(31deg) scaleX(0.72);
+}
+
+.landing-toast {
+  animation: landing-toast-enter 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.landing-toast-2 {
+  animation-delay: 180ms;
+}
+
+.landing-toast-3 {
+  animation-delay: 360ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-phone-float,
+  .landing-phone-halo,
+  .landing-toast {
+    animation: none;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

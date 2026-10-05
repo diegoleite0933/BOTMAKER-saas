@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ArrowRight, BadgeCheck, Bot, Check, CreditCard, FileText, LockKeyhole, MessageCircle, Radio, ShieldCheck, ShoppingBag, Sparkles, UsersRound, Zap } from "lucide-react";
+import { ArrowRight, BadgeCheck, Bot, Check, CreditCard, FileText, MessageCircle, Radio, ShoppingBag, Sparkles, UsersRound, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Brand } from "@/components/Brand";
 import { LandingNavigation } from "@/components/LandingNavigation";
 import { LandingCalculator } from "@/components/LandingCalculator";
+import { LandingPhoneMockup } from "@/components/LandingPhoneMockup";
 
 const features = [
   { icon: Bot, title: "Bots Telegram", description: "Conecte e gerencie vários bots em um painel da sua conta." },
@@ -62,36 +63,31 @@ export function LandingContent() {
       </header>
 
       <main>
-        <section className="mx-auto grid max-w-7xl items-center gap-12 px-4 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-16 lg:min-h-[680px] lg:grid-cols-[1fr_0.9fr] lg:gap-16 lg:py-20">
-          <div className="max-w-2xl">
+        <section className="mx-auto grid max-w-7xl items-center gap-9 px-4 pb-14 pt-10 sm:px-6 sm:pb-20 sm:pt-16 lg:min-h-[680px] lg:grid-cols-[1.1fr_0.9fr] lg:gap-8 lg:py-12 xl:gap-12">
+          <div className="relative z-10 max-w-2xl">
             <p className="inline-flex items-center gap-2 rounded-full border border-[#252525] bg-[#0b0b0b] px-3 py-1.5 text-xs font-medium text-[#a8c8ff]"><Sparkles aria-hidden="true" className="size-3.5 text-[#2f80ff]" /> Operação de vendas integrada ao Telegram</p>
-            <h1 className="mt-6 max-w-2xl text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-[3.4rem]">Venda conteúdos e acessos automaticamente pelo Telegram.</h1>
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-[#999] sm:text-lg">Crie seu bot, cadastre ofertas, conecte um gateway disponível e automatize pagamentos PIX, entrega de acessos e relacionamento com clientes.</p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/register"><Button size="lg" className="h-12 w-full gap-2 rounded-lg bg-[#2f80ff] px-6 text-white hover:bg-[#1677ff] sm:w-auto">Começar agora <ArrowRight aria-hidden="true" className="size-4" /></Button></Link>
-              <Link href="#como-funciona"><Button size="lg" variant="outline" className="h-12 w-full rounded-lg border-[#303030] bg-[#0a0a0a] px-6 text-[#ddd] hover:bg-[#151515] hover:text-white sm:w-auto">Ver como funciona</Button></Link>
+            <h1 aria-label="Venda conteúdos e acessos automaticamente pelo Telegram." className="mt-6 max-w-[680px] text-[36px] font-bold leading-[1.08] text-white sm:text-[54px] lg:text-[46px] xl:text-[54px] 2xl:text-[60px]">
+              <span aria-hidden="true" className="hidden sm:block">Venda conteúdos e</span>
+              <span aria-hidden="true" className="hidden sm:block">acessos</span>
+              <span aria-hidden="true" className="hidden sm:block">automaticamente pelo</span>
+              <span aria-hidden="true" className="block sm:hidden">Venda conteúdos</span>
+              <span aria-hidden="true" className="block sm:hidden">e acessos</span>
+              <span aria-hidden="true" className="block sm:hidden">automaticamente</span>
+              <span aria-hidden="true" className="block sm:hidden">pelo</span>
+              <span className="block text-[#1683ff]">Telegram.</span>
+            </h1>
+            <p className="mt-5 max-w-[600px] text-base leading-relaxed text-[#8b9aaa] sm:text-lg">Crie seu bot, cadastre ofertas, conecte um gateway disponível e automatize pagamentos PIX, entrega de acessos e relacionamento com clientes.</p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <Link href="/register"><Button size="lg" className="h-12 w-full gap-2 rounded-lg bg-[#087bff] px-6 text-white shadow-[0_8px_28px_rgba(8,123,255,0.18)] transition-all hover:-translate-y-0.5 hover:bg-[#168cff] hover:shadow-[0_8px_32px_rgba(8,123,255,0.36)] sm:w-auto">Começar agora <ArrowRight aria-hidden="true" className="size-4" /></Button></Link>
+              <Link href="#como-funciona"><Button size="lg" variant="outline" className="h-12 w-full rounded-lg border-[#303030] bg-[#080b0f] px-6 text-white transition-all hover:-translate-y-0.5 hover:border-[#27507b] hover:bg-[#0d1722] sm:w-auto">Ver como funciona</Button></Link>
             </div>
-            <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-xs text-[#777]">
-              <span className="inline-flex items-center gap-2"><Check aria-hidden="true" className="size-3.5 text-[#16c784]" /> Acessos e links externos</span>
-              <span className="inline-flex items-center gap-2"><Check aria-hidden="true" className="size-3.5 text-[#16c784]" /> PIX nos gateways disponíveis</span>
+            <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 text-xs text-[#8b9aaa]">
+              <span className="inline-flex items-center gap-2"><Check aria-hidden="true" className="size-3.5 text-[#2299ff]" /> Acessos e links externos</span>
+              <span className="inline-flex items-center gap-2"><Check aria-hidden="true" className="size-3.5 text-[#2299ff]" /> PIX nos gateways disponíveis</span>
             </div>
           </div>
 
-          <div aria-label="Exemplo de uma loja conectada ao Telegram" className="mx-auto w-full max-w-xl rounded-xl border border-[#252525] bg-[#090909] p-4 shadow-2xl shadow-black/30 sm:p-5">
-            <div className="flex items-center justify-between border-b border-[#1c1c1c] pb-4">
-              <div className="flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-lg bg-[#101a28] text-[#2f80ff]"><Bot aria-hidden="true" className="size-5" /></span><div><p className="text-sm font-medium text-white">Seu bot Telegram</p><p className="text-xs text-[#777]">Loja e acessos</p></div></div>
-              <span className="inline-flex items-center gap-1.5 text-xs text-[#16c784]"><span className="size-1.5 rounded-full bg-[#16c784]" /> Conectado</span>
-            </div>
-            <div className="mx-auto my-5 max-w-sm rounded-xl border border-[#202020] bg-[#0d0d0d] p-4">
-              <div className="mb-4 flex items-center gap-2 text-xs text-[#777]"><MessageCircle aria-hidden="true" className="size-3.5" /> Conversa no Telegram</div>
-              <p className="text-sm leading-relaxed text-[#e3e3e3]">Bem-vindo! Escolha o que deseja conhecer:</p>
-              <div className="mt-4 grid gap-2"><div className="rounded-lg border border-[#1f3d69] bg-[#101b2b] px-3 py-2 text-center text-xs font-medium text-[#9cc2ff]">Ver acessos</div><div className="rounded-lg border border-[#1f3d69] bg-[#101b2b] px-3 py-2 text-center text-xs font-medium text-[#9cc2ff]">Ver produtos</div></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg border border-[#1c1c1c] bg-[#0d0d0d] p-3"><p className="text-[11px] text-[#777]">Pagamento</p><p className="mt-1 flex items-center gap-2 text-sm font-medium text-white"><LockKeyhole aria-hidden="true" className="size-4 text-[#2f80ff]" /> PIX</p></div>
-              <div className="rounded-lg border border-[#1c1c1c] bg-[#0d0d0d] p-3"><p className="text-[11px] text-[#777]">Entrega</p><p className="mt-1 flex items-center gap-2 text-sm font-medium text-white"><ShieldCheck aria-hidden="true" className="size-4 text-[#16c784]" /> Automatizada</p></div>
-            </div>
-          </div>
+          <LandingPhoneMockup />
         </section>
 
         <section id="recursos" className="scroll-mt-20 border-y border-[#1b1b1b] bg-[#080808]">
