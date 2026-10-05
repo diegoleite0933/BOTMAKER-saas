@@ -16,8 +16,19 @@ const bebasNeue = Bebas_Neue({
 });
 
 export const metadata: Metadata = {
-  title: "ODISSEIABOT | Gestão de vendas no Telegram",
-  description: "Gerencie bots, vendas e campanhas do Telegram em um só lugar.",
+  title: "ODISSEIA BOT | Automação de vendas para Telegram",
+  description: "Crie bots, converta vendas, receba pagamentos PIX, automatize acessos e conecte gateways de pagamento em uma plataforma SaaS profissional.",
+  metadataBase: new URL("https://odisseiabot.com"),
+  openGraph: {
+    title: "ODISSEIA BOT",
+    description: "Automação de vendas para Telegram com pagamentos, acessos e recorrência.",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ODISSEIA BOT",
+    description: "Automação de vendas para Telegram com pagamentos e acessos automáticos.",
+  },
 };
 
 import { Providers } from "./providers";

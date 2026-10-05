@@ -21,9 +21,35 @@ services:
         value: production
       - key: NEXTAUTH_SECRET
         generateValue: true
-      - key: PAYMENT_CREDENTIALS_ENCRYPTION_KEY
-        generateValue: true
       - key: NEXTAUTH_URL
         value: "https://botmaker-web-iu2a.onrender.com"
       - key: APP_URL
         value: "https://botmaker-web-iu2a.onrender.com"
+      - key: PAYMENT_CREDENTIALS_ENCRYPTION_KEY
+        generateValue: true
+      - key: REDIS_URL
+        value: "redis://localhost:6379"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: MERCADOPAGO_ACCESS_TOKEN
+        sync: false
+      - key: MERCADOPAGO_WEBHOOK_SECRET
+        sync: false
+      - key: AMPLOPAY_CLIENT_ID
+        sync: false
+      - key: AMPLOPAY_CLIENT_SECRET
+        sync: false
+      - key: SYNC_PAY_CLIENT_ID
+        sync: false
+      - key: SYNC_PAY_CLIENT_SECRET
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: STORAGE_PROVIDER
+        value: local
+      - key: STORAGE_LOCAL_PATH
+        value: ./public/uploads

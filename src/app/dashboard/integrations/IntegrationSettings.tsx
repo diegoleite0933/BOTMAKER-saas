@@ -30,6 +30,10 @@ const credentialFields: Record<string, CredentialField[]> = {
   pix_direto: [
     { key: "pixKey", label: "Chave PIX", placeholder: "Sua chave PIX cadastrada no banco", description: "A conferência do pagamento permanece manual no grupo de revisão do bot." },
   ],
+  syncpay: [
+    { key: "clientId", label: "Client ID", placeholder: "Client ID da sua conta SyncPay", description: "Identificador público da conta do cliente." },
+    { key: "clientSecret", label: "Client Secret", placeholder: "Client Secret da sua conta SyncPay", description: "Segredo da aplicação; nunca é exibido no frontend." },
+  ],
 };
 
 function statusText(provider: Provider) {

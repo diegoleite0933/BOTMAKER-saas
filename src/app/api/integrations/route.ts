@@ -9,6 +9,7 @@ const providerFields = {
   mercadopago: ["accessToken"],
   amplopay: ["clientId", "clientSecret"],
   pix_direto: ["pixKey"],
+  syncpay: ["clientId", "clientSecret"],
 } as const;
 const providerIds = ["mercadopago", "amplopay", "pix_direto", "pushinpay", "atomopay", "nexuswallet", "syncpay", "stripe", "oasypay"] as const;
 type ProviderId = (typeof providerIds)[number];
@@ -20,7 +21,7 @@ const providerCatalog: Record<ProviderId, { name: string; description: string; s
   pushinpay: { name: "Pushin Pay", description: "Conector aguardando validação de documentação e eventos.", status: "coming-soon", testable: false },
   atomopay: { name: "Átomo Pay", description: "Conector aguardando validação de documentação e eventos.", status: "coming-soon", testable: false },
   nexuswallet: { name: "Nexus Wallet", description: "Conector aguardando validação de documentação e eventos.", status: "coming-soon", testable: false },
-  syncpay: { name: "Sync Pay", description: "Conector aguardando validação de documentação e eventos.", status: "coming-soon", testable: false },
+  syncpay: { name: "Sync Pay", description: "Autenticação real com client_id e client_secret, PIX e webhooks no backend.", status: "available", testable: true },
   stripe: { name: "Stripe", description: "A API oficial existe; checkout, PIX e webhooks ainda não foram ligados ao sistema.", status: "coming-soon", testable: false },
   oasypay: { name: "Oasy Pay", description: "Conector aguardando validação de documentação e eventos.", status: "coming-soon", testable: false },
 };
@@ -39,8 +40,9 @@ export async function GET() {
   const userId = await authenticatedUserId();
   if (!userId) return NextResponse.json({ message: "Não autorizado." }, { status: 401 });
 
-  const [integrations, bots] = await Promise.all([
+  const [integrations, syncpayConnections, bots] = await Promise.all([
     prisma.paymentIntegration.findMany({ where: { userId }, select: { provider: true, lastTestAt: true, lastTestStatus: true } }),
+    prisma.syncPayConnection.findMany({ where: { userId }, select: { workspaceId: true, status: true, lastValidatedAt: true } }),
     prisma.bot.findMany({
       where: { workspace: { userId } },
       select: { mpAccessToken: true, amploPayClientId: true, amploPayClientSecret: true, pixKey: true },
@@ -62,12 +64,14 @@ export async function GET() {
     integrations: providerIds.map((provider) => ({
       id: provider,
       ...providerCatalog[provider],
-      configured: saved.has(provider) || (provider in legacyCount && legacyCount[provider as keyof typeof legacyCount] > 0) || environmentFallback[provider as keyof typeof environmentFallback] === true,
-      configuredCentrally: saved.has(provider),
+      configured: provider === "syncpay"
+        ? syncpayConnections.length > 0
+        : saved.has(provider) || (provider in legacyCount && legacyCount[provider as keyof typeof legacyCount] > 0) || environmentFallback[provider as keyof typeof environmentFallback] === true,
+      configuredCentrally: provider === "syncpay" ? syncpayConnections.length > 0 : saved.has(provider),
       legacyBotCount: provider in legacyCount ? legacyCount[provider as keyof typeof legacyCount] : 0,
-      environmentFallback: environmentFallback[provider as keyof typeof environmentFallback] === true,
-      lastTestAt: saved.get(provider)?.lastTestAt || null,
-      lastTestStatus: saved.get(provider)?.lastTestStatus || null,
+      environmentFallback: provider === "syncpay" ? false : environmentFallback[provider as keyof typeof environmentFallback] === true,
+      lastTestAt: provider === "syncpay" ? syncpayConnections[0]?.lastValidatedAt || null : saved.get(provider)?.lastTestAt || null,
+      lastTestStatus: provider === "syncpay" ? (syncpayConnections[0]?.status === "connected" ? "success" : null) : saved.get(provider)?.lastTestStatus || null,
     })),
   });
 }
@@ -82,6 +86,38 @@ export async function PUT(request: Request) {
   }
 
   const provider = body.provider as keyof typeof providerFields;
+  const workspace = await prisma.workspace.findFirst({ where: { userId }, select: { id: true } });
+  if (!workspace) {
+    return NextResponse.json({ message: "Crie um workspace antes de salvar credenciais do gateway." }, { status: 400 });
+  }
+
+  if (provider === "syncpay") {
+    const clientId = typeof body.credentials?.clientId === "string" ? body.credentials.clientId.trim() : "";
+    const clientSecret = typeof body.credentials?.clientSecret === "string" ? body.credentials.clientSecret.trim() : "";
+    if (!clientId || !clientSecret) {
+      return NextResponse.json({ message: "Preencha Client ID e Client Secret da SyncPay." }, { status: 400 });
+    }
+
+    await prisma.syncPayConnection.upsert({
+      where: { userId_workspaceId: { userId, workspaceId: workspace.id } },
+      create: {
+        userId,
+        workspaceId: workspace.id,
+        clientId,
+        encryptedClientSecret: encryptPaymentCredentials({ clientSecret }),
+        status: "connected",
+      },
+      update: {
+        clientId,
+        encryptedClientSecret: encryptPaymentCredentials({ clientSecret }),
+        status: "connected",
+        lastValidatedAt: new Date(),
+      },
+    });
+
+    return NextResponse.json({ message: "Integração SyncPay salva e protegida por workspace." });
+  }
+
   const fields = providerFields[provider];
   const existing = await prisma.paymentIntegration.findUnique({ where: { userId_provider: { userId, provider } } });
   const credentials = existing ? decryptPaymentCredentials(existing.encryptedCredentials) : {};
@@ -109,34 +145,68 @@ export async function POST(request: Request) {
   if (!userId) return NextResponse.json({ message: "Não autorizado." }, { status: 401 });
 
   const body = await request.json();
-  if (body.action !== "test" || body.provider !== "mercadopago") {
-    return NextResponse.json({ message: "Teste automático disponível apenas para o Mercado Pago." }, { status: 400 });
+  const actionableProviders = new Set(["mercadopago", "syncpay"]);
+  if (body.action !== "test" || !actionableProviders.has(body.provider)) {
+    return NextResponse.json({ message: "Teste automático disponível apenas para o Mercado Pago e SyncPay." }, { status: 400 });
   }
 
-  const integration = await prisma.paymentIntegration.findUnique({ where: { userId_provider: { userId, provider: "mercadopago" } } });
-  if (!integration) return NextResponse.json({ message: "Salve o Access Token antes de testar." }, { status: 400 });
+  const provider = body.provider as "mercadopago" | "syncpay";
+  const workspace = await prisma.workspace.findFirst({ where: { userId }, select: { id: true } });
+  if (!workspace && provider === "syncpay") {
+    return NextResponse.json({ message: "Crie um workspace antes de testar a SyncPay." }, { status: 400 });
+  }
 
   try {
-    const credentials = decryptPaymentCredentials(integration.encryptedCredentials);
-    const response = await fetch("https://api.mercadopago.com/users/me", {
-      headers: { Authorization: `Bearer ${credentials.accessToken}` },
-      signal: AbortSignal.timeout(12000),
-    });
     const testedAt = new Date();
-    await prisma.paymentIntegration.update({
-      where: { id: integration.id },
-      data: { lastTestAt: testedAt, lastTestStatus: response.ok ? "success" : "failed" },
+
+    if (provider === "mercadopago") {
+      const integration = await prisma.paymentIntegration.findUnique({ where: { userId_provider: { userId, provider } } });
+      if (!integration) return NextResponse.json({ message: "Salve as credenciais antes de testar." }, { status: 400 });
+      const credentials = decryptPaymentCredentials(integration.encryptedCredentials);
+      const response = await fetch("https://api.mercadopago.com/users/me", {
+        headers: { Authorization: `Bearer ${credentials.accessToken}` },
+        signal: AbortSignal.timeout(12000),
+      });
+      await prisma.paymentIntegration.update({
+        where: { id: integration.id },
+        data: { lastTestAt: testedAt, lastTestStatus: response.ok ? "success" : "failed" },
+      });
+      return NextResponse.json(
+        { connected: response.ok, message: response.ok ? "Credenciais válidas no Mercado Pago." : "O Mercado Pago recusou as credenciais." },
+        { status: response.ok ? 200 : 422 },
+      );
+    }
+
+    const connection = await prisma.syncPayConnection.findFirst({
+      where: { workspaceId: workspace!.id, userId },
+      select: { clientId: true, encryptedClientSecret: true },
     });
+    if (!connection) return NextResponse.json({ message: "Salve as credenciais SyncPay antes de testar." }, { status: 400 });
+
+    const credentials = decryptPaymentCredentials(connection.encryptedClientSecret);
+    const response = await fetch("https://api.syncpayments.com.br/api/partner/v1/auth-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ client_id: connection.clientId, client_secret: credentials.clientSecret }),
+      signal: AbortSignal.timeout(15000),
+    });
+    await prisma.syncPayConnection.update({
+      where: { userId_workspaceId: { userId, workspaceId: workspace!.id } },
+      data: { lastValidatedAt: testedAt, status: response.ok ? "connected" : "disconnected" },
+    });
+
     return NextResponse.json(
-      { connected: response.ok, message: response.ok ? "Credenciais válidas no Mercado Pago." : "O Mercado Pago recusou as credenciais." },
+      { connected: response.ok, message: response.ok ? "Credenciais válidas na SyncPay." : "A SyncPay recusou as credenciais." },
       { status: response.ok ? 200 : 422 },
     );
   } catch {
-    await prisma.paymentIntegration.update({
-      where: { id: integration.id },
-      data: { lastTestAt: new Date(), lastTestStatus: "failed" },
-    });
-    return NextResponse.json({ connected: false, message: "Não foi possível validar a conexão com o Mercado Pago." }, { status: 502 });
+    if (provider === "syncpay" && workspace) {
+      await prisma.syncPayConnection.update({
+        where: { userId_workspaceId: { userId, workspaceId: workspace.id } },
+        data: { lastValidatedAt: new Date(), status: "disconnected" },
+      }).catch(() => {});
+    }
+    return NextResponse.json({ connected: false, message: "Não foi possível validar a conexão com a conta informada." }, { status: 502 });
   }
 }
 
@@ -150,14 +220,19 @@ export async function DELETE(request: Request) {
   }
 
   const provider = body.provider as keyof typeof providerFields;
+  const workspace = await prisma.workspace.findFirst({ where: { userId }, select: { id: true } });
   const clearLegacyFields = provider === "mercadopago"
     ? { mpAccessToken: null }
     : provider === "amplopay"
       ? { amploPayClientId: null, amploPayClientSecret: null }
-      : { pixKey: null };
+      : provider === "syncpay"
+        ? {}
+        : { pixKey: null };
 
   await prisma.$transaction([
-    prisma.paymentIntegration.deleteMany({ where: { userId, provider } }),
+    provider === "syncpay"
+      ? prisma.syncPayConnection.deleteMany({ where: { userId, workspaceId: workspace?.id } })
+      : prisma.paymentIntegration.deleteMany({ where: { userId, provider } }),
     prisma.bot.updateMany({ where: { workspace: { userId } }, data: clearLegacyFields }),
   ]);
 

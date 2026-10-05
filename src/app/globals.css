@@ -4,6 +4,33 @@
 
 @custom-variant dark (&:is(.dark *));
 
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #050505;
+  color: #f5f5f5;
+}
+
+::selection {
+  background: rgba(47, 128, 255, 0.35);
+}
+
+@keyframes floatQuiet {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.premium-float {
+  animation: floatQuiet 9s ease-in-out infinite;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

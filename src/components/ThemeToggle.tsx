@@ -11,7 +11,7 @@ function subscribeTheme(callback: () => void) {
 }
 
 function getThemeSnapshot() {
-  return document.documentElement.classList.contains("dark");
+  return document.querySelector("[data-theme-scope='dashboard']")?.classList.contains("dark") ?? false;
 }
 
 function getServerThemeSnapshot() {
@@ -23,13 +23,15 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
 
   useEffect(() => {
     const isDark = localStorage.getItem("odisseiabot-theme") === "dark";
-    document.documentElement.classList.toggle("dark", isDark);
+    document.querySelector("[data-theme-scope='dashboard']")?.classList.toggle("dark", isDark);
     window.dispatchEvent(new Event(themeChangeEvent));
   }, []);
 
   function toggleTheme() {
-    const nextDark = !document.documentElement.classList.contains("dark");
-    document.documentElement.classList.toggle("dark", nextDark);
+    const themeScope = document.querySelector("[data-theme-scope='dashboard']");
+    if (!themeScope) return;
+    const nextDark = !themeScope.classList.contains("dark");
+    themeScope.classList.toggle("dark", nextDark);
     localStorage.setItem("odisseiabot-theme", nextDark ? "dark" : "light");
     window.dispatchEvent(new Event(themeChangeEvent));
   }

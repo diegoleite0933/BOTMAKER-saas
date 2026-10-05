@@ -34,6 +34,28 @@ function decryptPaymentCredentials(payload) {
   return JSON.parse(decrypted.toString("utf8"));
 }
 
+async function resolveTenantSyncPayCredentials(prisma, workspaceId) {
+  if (!workspaceId || !prisma?.syncPayConnection) return null;
+
+  const connection = await prisma.syncPayConnection.findFirst({
+    where: { workspaceId },
+    select: { clientId: true, encryptedClientSecret: true, accessToken: true },
+  });
+
+  if (!connection || !connection.encryptedClientSecret) return null;
+
+  try {
+    const decrypted = decryptPaymentCredentials(connection.encryptedClientSecret);
+    return {
+      clientId: connection.clientId || "",
+      clientSecret: decrypted.clientSecret || "",
+      accessToken: connection.accessToken || "",
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function resolvePaymentCredentials(prisma, bot, provider) {
   const workspace = await prisma.workspace.findUnique({
     where: { id: bot.workspaceId },
@@ -56,6 +78,15 @@ async function resolvePaymentCredentials(prisma, bot, provider) {
     };
   }
   if (provider === "pix_direto") return { pixKey: bot.pixKey || "" };
+  if (provider === "syncpay") {
+    const scoped = await resolveTenantSyncPayCredentials(prisma, bot.workspaceId);
+    if (scoped && scoped.clientId && scoped.clientSecret) return scoped;
+
+    return {
+      clientId: process.env.SYNC_PAY_CLIENT_ID || "",
+      clientSecret: process.env.SYNC_PAY_CLIENT_SECRET || "",
+    };
+  }
   return {};
 }
 

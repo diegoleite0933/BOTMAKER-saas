@@ -25,6 +25,7 @@ model User {
 
   workspaces Workspace[]
   paymentIntegrations PaymentIntegration[]
+  syncpayConnections SyncPayConnection[]
 
   @@index([nickname])
   @@index([cpf])
@@ -45,12 +46,33 @@ model PaymentIntegration {
   @@index([provider])
 }
 
+model SyncPayConnection {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId            String
+  workspace             Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  clientId              String
+  encryptedClientSecret String
+  accessToken           String?
+  accessTokenExpiresAt  DateTime?
+  webhookUrl            String?
+  status                String    @default("disconnected")
+  lastValidatedAt       DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId, status])
+}
+
 model Workspace {
   id        String   @id @default(cuid())
   name      String
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   bots      Bot[]
+  syncpayConnections SyncPayConnection[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -70,7 +92,7 @@ model Bot {
   webhookUrl  String?
   
   // Opções de Pagamento
-  paymentMethod        String  @default("mercadopago") // mercadopago, pix_direto, amplopay
+  paymentMethod        String  @default("mercadopago") // mercadopago, pix_direto, amplopay, syncpay
   mpAccessToken        String? // Caso seja mercado pago
   pixKey               String? // Caso seja pix direto
   amploPayClientId     String? // Caso seja amplo pay

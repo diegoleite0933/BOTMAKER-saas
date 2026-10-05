@@ -48,6 +48,32 @@ const providerFactories = {
       qrCode: payment.qrCode,
     };
   },
+  syncpay: async (request) => {
+    const gatewayModule = await import("./syncpay.js");
+    const { createSyncPayPixCharge } = gatewayModule.default || gatewayModule;
+    const payment = await createSyncPayPixCharge({
+      accessToken: request.credentials.accessToken,
+      clientId: request.credentials.clientId,
+      clientSecret: request.credentials.clientSecret,
+      amount: request.amount,
+      description: request.description,
+      client: {
+        name: request.payerName,
+        email: request.payerEmail,
+        phone: request.phone || "11999999999",
+        cpf: request.cpf || "00000000000",
+      },
+      webhookUrl: request.notificationUrl,
+      fetchImpl: request.fetchImpl,
+    });
+    return {
+      paymentId: payment.identifier,
+      pixCode: payment.pixCode,
+      qrCodeBase64: payment.qrCodeBase64,
+      ticketUrl: payment.ticketUrl,
+      identifier: payment.identifier,
+    };
+  },
 };
 
 function createPaymentWebhookSignature(orderId) {
