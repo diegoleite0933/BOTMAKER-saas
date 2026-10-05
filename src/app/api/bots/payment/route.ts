@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
+import { isValidPaymentMethod } from "@/lib/payment-options";
 
 const prisma = new PrismaClient();
 
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
     const { botId, method, pixReviewChatId } = await req.json();
 
     if (!botId) return NextResponse.json({ message: "Missing botId" }, { status: 400 });
-    if (!["mercadopago", "amplopay", "pix_direto"].includes(method)) {
+    if (!isValidPaymentMethod(method)) {
       return NextResponse.json({ message: "Método de pagamento inválido." }, { status: 400 });
     }
 

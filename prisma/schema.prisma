@@ -128,6 +128,8 @@ model Product {
   description        String?
   price              Float
   discountPercent    Int       @default(0)
+  billingType        String    @default("one_time") // one_time, recurring
+  recurringInterval  String?   // monthly, quarterly, yearly
   currency           String    @default("BRL")
   status             String    @default("active") // active, inactive
   isOrderBumpOnly    Boolean   @default(false)

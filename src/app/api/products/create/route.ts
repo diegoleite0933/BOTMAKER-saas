@@ -12,9 +12,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Não autorizado" }, { status: 401 });
     }
 
-    const { name, description, price, discountPercent, botId, deliveryType, telegramChatId, content, durationDays, isOrderBumpOnly } = await req.json();
+    const { name, description, price, discountPercent, billingType, recurringInterval, botId, deliveryType, telegramChatId, content, durationDays, isOrderBumpOnly } = await req.json();
     const numericPrice = Number(price);
     const numericDiscount = Number(discountPercent || 0);
+    const normalizedBillingType = billingType === "recurring" ? "recurring" : "one_time";
+    const normalizedRecurringInterval = normalizedBillingType === "recurring" && (recurringInterval === "quarterly" || recurringInterval === "yearly") ? recurringInterval : "monthly";
     const normalizedName = typeof name === "string" ? name.trim() : "";
     const normalizedChatId = typeof telegramChatId === "string" ? telegramChatId.trim() : "";
     const normalizedContent = typeof content === "string" ? content.trim() : "";
@@ -22,6 +24,9 @@ export async function POST(req: Request) {
 
     if (!normalizedName || normalizedName.length > 120 || !Number.isFinite(numericPrice) || numericPrice <= 0 || !botId) {
       return NextResponse.json({ message: "Dados incompletos" }, { status: 400 });
+    }
+    if (normalizedBillingType !== "one_time" && normalizedBillingType !== "recurring") {
+      return NextResponse.json({ message: "Tipo de cobrança inválido." }, { status: 400 });
     }
     if (!Number.isInteger(numericDiscount) || numericDiscount < 0 || numericDiscount > 90) {
       return NextResponse.json({ message: "O desconto deve estar entre 0% e 90%." }, { status: 400 });
@@ -62,6 +67,8 @@ export async function POST(req: Request) {
         description: typeof description === "string" ? description.trim() || null : null,
         price: numericPrice,
         discountPercent: numericDiscount,
+        billingType: normalizedBillingType,
+        recurringInterval: normalizedBillingType === "recurring" ? normalizedRecurringInterval : null,
         botId,
         isOrderBumpOnly: isOrderBumpOnly === true,
         deliveries: {

@@ -46,6 +46,8 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         description: product.description || "",
         price: product.price,
         discountPercent: product.discountPercent,
+        billingType: product.billingType,
+        recurringInterval: product.recurringInterval,
         status: product.status,
         isOrderBumpOnly: product.isOrderBumpOnly,
         botId: product.botId,

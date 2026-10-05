@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SUPPORTED_PAYMENT_METHODS } from "@/lib/payment-options";
 
 export function PaymentSettingsForm({
   botId,
@@ -55,8 +56,9 @@ export function PaymentSettingsForm({
             <option value="mercadopago">Mercado Pago</option>
             <option value="amplopay">AmploPay</option>
             <option value="pix_direto">PIX Direto, com revisão manual</option>
+            <option value="syncpay">SyncPay</option>
           </select>
-          <p className="text-xs text-slate-500">As credenciais são gerenciadas centralmente e não aparecem nesta tela.</p>
+          <p className="text-xs text-slate-500">As credenciais são gerenciadas centralmente e não aparecem nesta tela. O SyncPay também pode ser usado para recorrência e assinaturas.</p>
         </div>
 
         {method === "pix_direto" && (

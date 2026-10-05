@@ -33,6 +33,8 @@ export function ProductEditor({
     description: string;
     price: number;
     discountPercent: number;
+    billingType: string;
+    recurringInterval: string | null;
     status: string;
     isOrderBumpOnly: boolean;
     botId: string;
@@ -47,6 +49,8 @@ export function ProductEditor({
   const [description, setDescription] = useState(product.description);
   const [price, setPrice] = useState(String(product.price));
   const [discountPercent, setDiscountPercent] = useState(String(product.discountPercent));
+  const [billingType, setBillingType] = useState<"one_time" | "recurring">(product.billingType === "recurring" ? "recurring" : "one_time");
+  const [recurringInterval, setRecurringInterval] = useState<"monthly" | "quarterly" | "yearly">((product.recurringInterval as "monthly" | "quarterly" | "yearly") || "monthly");
   const [botId, setBotId] = useState(product.botId);
   const [status, setStatus] = useState(product.status);
   const [isOrderBumpOnly, setIsOrderBumpOnly] = useState(product.isOrderBumpOnly);
@@ -75,6 +79,8 @@ export function ProductEditor({
           description,
           price: Number(price),
           discountPercent: Number(discountPercent),
+          billingType,
+          recurringInterval,
           botId,
           status,
           isOrderBumpOnly,
@@ -157,6 +163,25 @@ export function ProductEditor({
               <Label htmlFor="product-discount">Desconto (%)</Label>
               <Input id="product-discount" type="number" min="0" max="90" step="1" value={discountPercent} onChange={(event) => setDiscountPercent(event.target.value)} required />
               <p className="text-xs text-slate-500">A oferta será apresentada pelo preço com desconto no bot.</p>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="product-billing-type">Tipo de cobrança</Label>
+                <select id="product-billing-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={billingType} onChange={(event) => setBillingType(event.target.value as "one_time" | "recurring")}>
+                  <option value="one_time">Única (PIX avulso)</option>
+                  <option value="recurring">Recorrente / assinatura</option>
+                </select>
+              </div>
+              {billingType === "recurring" && (
+                <div className="space-y-2">
+                  <Label htmlFor="product-recurring-interval">Frequência</Label>
+                  <select id="product-recurring-interval" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" value={recurringInterval} onChange={(event) => setRecurringInterval(event.target.value as "monthly" | "quarterly" | "yearly") }>
+                    <option value="monthly">Mensal</option>
+                    <option value="quarterly">Trimestral</option>
+                    <option value="yearly">Anual</option>
+                  </select>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="product-description">Descrição</Label>

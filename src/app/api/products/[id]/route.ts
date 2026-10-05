@@ -30,6 +30,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const description = typeof body.description === "string" ? body.description.trim() : "";
     const price = Number(body.price);
+    const billingType = body.billingType === "recurring" ? "recurring" : "one_time";
+    const recurringInterval = billingType === "recurring" && (body.recurringInterval === "monthly" || body.recurringInterval === "quarterly" || body.recurringInterval === "yearly") ? body.recurringInterval : "monthly";
     const discountPercent = Number(body.discountPercent || 0);
     const botId = typeof body.botId === "string" ? body.botId : "";
     const status = body.status;
@@ -102,6 +104,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           description: description || null,
           price,
           discountPercent,
+          billingType,
+          recurringInterval: billingType === "recurring" ? recurringInterval : null,
           botId,
           status,
           isOrderBumpOnly,

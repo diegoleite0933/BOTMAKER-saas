@@ -19,6 +19,8 @@ export default function NewProductPage() {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [discountPercent, setDiscountPercent] = useState("0");
+  const [billingType, setBillingType] = useState<"one_time" | "recurring">("one_time");
+  const [recurringInterval, setRecurringInterval] = useState<"monthly" | "quarterly" | "yearly">("monthly");
   const [botId, setBotId] = useState(initialBotId);
   const [offerType, setOfferType] = useState<"access" | "product">("access");
   const [accessType, setAccessType] = useState<"group" | "channel">("group");
@@ -53,6 +55,8 @@ export default function NewProductPage() {
           description, 
           price: parseFloat(price), 
           discountPercent: Number(discountPercent),
+          billingType,
+          recurringInterval,
           botId, 
           deliveryType: offerType === "access" ? accessType : "file",
           telegramChatId: offerType === "access" ? telegramChatId : null,
@@ -113,6 +117,27 @@ export default function NewProductPage() {
               <Label htmlFor="discount-percent">Desconto (%)</Label>
               <Input id="discount-percent" type="number" min="0" max="90" step="1" value={discountPercent} onChange={(event) => setDiscountPercent(event.target.value)} required />
               <p className="text-xs text-slate-500">O preço promocional será calculado sobre o preço informado.</p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="billing-type">Tipo de cobrança</Label>
+                <select id="billing-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={billingType} onChange={(event) => setBillingType(event.target.value as "one_time" | "recurring")}>
+                  <option value="one_time">Única (PIX avulso)</option>
+                  <option value="recurring">Recorrente / assinatura</option>
+                </select>
+              </div>
+
+              {billingType === "recurring" && (
+                <div className="space-y-2">
+                  <Label htmlFor="recurring-interval">Frequência</Label>
+                  <select id="recurring-interval" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={recurringInterval} onChange={(event) => setRecurringInterval(event.target.value as "monthly" | "quarterly" | "yearly")}>
+                    <option value="monthly">Mensal</option>
+                    <option value="quarterly">Trimestral</option>
+                    <option value="yearly">Anual</option>
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">

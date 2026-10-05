@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const { verifySyncPayWebhookSignature, getSyncPayBaseUrl, normalizeSyncPayStatus } = require('../src/lib/syncpay.js');
 const { encryptPaymentCredentials } = require('../src/lib/payment-credentials.js');
 const { resolvePaymentCredentials } = require('../src/lib/payment-credentials.js');
+const { SUPPORTED_PAYMENT_METHODS, normalizeBillingType, normalizeRecurringInterval } = require('../src/lib/payment-options.js');
 
 test('base URL uses official SyncPay host', () => {
   assert.equal(getSyncPayBaseUrl(), 'https://api.syncpayments.com.br/api/partner/v1');
@@ -61,4 +62,12 @@ test('tenant-scoped SyncPay credentials are preferred over global env fallback',
   } finally {
     process.env.SYNC_PAY_CLIENT_SECRET = secret;
   }
+});
+
+test('SyncPay is supported as a bot payment method and recurring plans allow subscription billing', () => {
+  assert.ok(SUPPORTED_PAYMENT_METHODS.includes('syncpay'));
+  assert.equal(normalizeBillingType('recurring'), 'recurring');
+  assert.equal(normalizeBillingType('one_time'), 'one_time');
+  assert.equal(normalizeRecurringInterval('quarterly'), 'quarterly');
+  assert.equal(normalizeRecurringInterval('bad-value'), 'monthly');
 });
