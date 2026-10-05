@@ -12,9 +12,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const { botId, method, pixKey, mpToken, amplopayId, amplopaySecret, pixReviewChatId } = await req.json();
+    const { botId, method, pixReviewChatId } = await req.json();
 
     if (!botId) return NextResponse.json({ message: "Missing botId" }, { status: 400 });
+    if (!["mercadopago", "amplopay", "pix_direto"].includes(method)) {
+      return NextResponse.json({ message: "Método de pagamento inválido." }, { status: 400 });
+    }
 
     // Verifica se o bot pertence ao workspace deste usuário
     const workspace = await prisma.workspace.findFirst({
@@ -29,15 +32,10 @@ export async function POST(req: Request) {
 
     if (!bot) return NextResponse.json({ message: "Bot not found" }, { status: 404 });
 
-    // Atualiza
     await prisma.bot.update({
       where: { id: botId },
       data: {
         paymentMethod: method,
-        pixKey: pixKey || null,
-        mpAccessToken: mpToken || null,
-        amploPayClientId: amplopayId || null,
-        amploPayClientSecret: amplopaySecret || null,
         pixReviewChatId: typeof pixReviewChatId === "string" ? pixReviewChatId.trim() || null : null
       }
     });

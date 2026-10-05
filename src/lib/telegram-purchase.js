@@ -1,3 +1,6 @@
+const { resolvePaymentCredentials } = require("./payment-credentials.js");
+const { createPaymentWebhookSignature, createPixPayment } = require("./payment-service.js");
+
 function currency(amount) {
   return amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -48,12 +51,6 @@ async function createTelegramCustomer(prisma, ctx, botId) {
 }
 
 async function checkout(ctx, prisma, botRecord, product, bumpProduct, discountOverride = null) {
-  const [pixModule, paymentModule] = await Promise.all([
-    import("./pix-code.js"),
-    import("./payment-gateways.js"),
-  ]);
-  const { generatePixQr } = pixModule.default || pixModule;
-  const { createMercadoPagoPix, createAmploPayPix } = paymentModule.default || paymentModule;
   await createTelegramCustomer(prisma, ctx, product.botId);
   const discountPercent = discountOverride ?? product.discountPercent ?? 0;
   const bumpDiscountPercent = bumpProduct?.discountPercent || 0;
@@ -71,68 +68,36 @@ async function checkout(ctx, prisma, botRecord, product, bumpProduct, discountOv
     discountPercent,
     bumpDiscountPercent,
   };
-
-  if (botRecord.paymentMethod === "pix_direto") {
-    if (!botRecord.pixKey) return ctx.reply("O administrador ainda não configurou a chave PIX.");
-
-    const { copyPasteCode, qrCode } = await generatePixQr({
-      pixKey: botRecord.pixKey,
-      merchantName: botRecord.name,
-      merchantCity: process.env.PIX_MERCHANT_CITY || "SAO PAULO",
-      amount: total,
-      transactionId: orderId,
-    });
-    await prisma.order.create({ data: { ...orderData, paymentGateway: "pix_direto" } });
-    await ctx.replyWithPhoto(
-      { source: qrCode, filename: "pix.png" },
-      { caption: `PIX de ${currency(total)} para ${productNames}. Chave: ${botRecord.pixKey}` },
-    );
-    await ctx.reply(`PIX copia e cola (${currency(total)}):\n${copyPasteCode}`);
-    return ctx.reply("Depois de pagar, envie o comprovante como foto nesta conversa.");
+  const provider = botRecord.paymentMethod;
+  const credentials = await resolvePaymentCredentials(prisma, botRecord, provider);
+  const webhookSignature = provider === "amplopay" ? createPaymentWebhookSignature(orderId) : null;
+  if (provider === "mercadopago" && (!credentials.accessToken || credentials.accessToken === "seu_access_token_aqui")) {
+    return ctx.reply("O administrador ainda não configurou o Mercado Pago.");
+  }
+  if (provider === "amplopay" && (!credentials.clientId || !credentials.clientSecret)) {
+    return ctx.reply("O administrador ainda não configurou a AmploPay.");
+  }
+  if (provider === "pix_direto" && !credentials.pixKey) {
+    return ctx.reply("O administrador ainda não configurou a chave PIX.");
   }
 
-  if (botRecord.paymentMethod === "mercadopago") {
-    const accessToken = botRecord.mpAccessToken || process.env.MERCADOPAGO_ACCESS_TOKEN;
-    if (!accessToken || accessToken === "seu_access_token_aqui") {
-      return ctx.reply("O administrador ainda não configurou o Mercado Pago.");
-    }
-
-    const payment = await createMercadoPagoPix({
-      accessToken,
-      orderId,
-      amount: total,
-      description: productNames,
-      notificationUrl: `${process.env.APP_URL || "http://localhost:3000"}/api/webhooks/mercadopago`,
-      payerEmail: `tg_${ctx.from.id}@botmaker.local`,
-      payerName: ctx.from.first_name || "Cliente Telegram",
-    });
-    await prisma.order.create({
-      data: {
-        ...orderData,
-        paymentGateway: "mercadopago",
-        paymentId: payment.paymentId,
-        paymentQrCode: payment.pixCode,
-        paymentTicketUrl: payment.ticketUrl,
-      },
-    });
-    if (payment.qrCodeBase64) {
-      await ctx.replyWithPhoto(Buffer.from(payment.qrCodeBase64, "base64"), {
-        caption: `PIX de ${currency(total)} para ${productNames}.`,
-      });
-    }
-    return ctx.reply(`PIX copia e cola (${currency(total)}):\n${payment.pixCode}`);
-  }
-
-  if (botRecord.paymentMethod === "amplopay") {
-    const clientId = botRecord.amploPayClientId || process.env.AMPLOPAY_CLIENT_ID;
-    const clientSecret = botRecord.amploPayClientSecret || process.env.AMPLOPAY_CLIENT_SECRET;
-    if (!clientId || !clientSecret) return ctx.reply("O administrador ainda não configurou a AmploPay.");
-
-    const products = [
-      { product, price: salePrice(product, discountPercent) },
-      ...(bumpProduct ? [{ product: bumpProduct, price: salePrice(bumpProduct, bumpDiscountPercent) }] : []),
-    ];
-    const payload = {
+  const items = [
+    { product, price: salePrice(product, discountPercent) },
+    ...(bumpProduct ? [{ product: bumpProduct, price: salePrice(bumpProduct, bumpDiscountPercent) }] : []),
+  ];
+  const appUrl = process.env.APP_URL || "http://localhost:3000";
+  const payment = await createPixPayment({
+    provider,
+    credentials,
+    orderId,
+    amount: total,
+    description: productNames,
+    notificationUrl: `${appUrl}/api/webhooks/mercadopago`,
+    payerEmail: `tg_${ctx.from.id}@botmaker.local`,
+    payerName: ctx.from.first_name || "Cliente Telegram",
+    merchantName: botRecord.name,
+    merchantCity: process.env.PIX_MERCHANT_CITY || "SAO PAULO",
+    amploPayload: {
       identifier: orderId,
       amount: total,
       client: {
@@ -141,18 +106,39 @@ async function checkout(ctx, prisma, botRecord, product, bumpProduct, discountOv
         phone: "11999999999",
         document: createCpf(),
       },
-      products: products.map(({ product: entry, price }) => ({ id: entry.id, name: entry.name, quantity: 1, price })),
+      products: items.map(({ product: entry, price }) => ({ id: entry.id, name: entry.name, quantity: 1, price })),
       metadata: { productId: product.id, bumpProductId: bumpProduct?.id || null, telegramUserId: ctx.from.id.toString(), botId: product.botId },
-      callbackUrl: `${process.env.APP_URL || "http://localhost:3000"}/api/webhooks/amplopay`,
-    };
-    const payment = await createAmploPayPix({ clientId, clientSecret, payload });
-    await prisma.order.create({
-      data: { ...orderData, paymentGateway: "amplopay", paymentId: payment.paymentId || undefined, paymentQrCode: payment.pixCode },
-    });
-    return ctx.reply(`PIX copia e cola AmploPay (${currency(total)}):\n${payment.pixCode}`);
-  }
+      callbackUrl: `${appUrl}/api/webhooks/amplopay?signature=${encodeURIComponent(webhookSignature || "")}`,
+    },
+  });
 
-  return ctx.reply("Forma de pagamento não configurada.");
+  await prisma.order.create({
+    data: {
+      ...orderData,
+      paymentGateway: payment.provider,
+      paymentId: payment.paymentId || undefined,
+      paymentQrCode: payment.pixCode,
+      paymentTicketUrl: payment.ticketUrl || undefined,
+      webhookSignature: webhookSignature || undefined,
+      webhookSignature: webhookSignature || undefined,
+    },
+  });
+
+  if (payment.provider === "pix_direto" && payment.qrCode) {
+    await ctx.replyWithPhoto(
+      { source: payment.qrCode, filename: "pix.png" },
+      { caption: `PIX de ${currency(total)} para ${productNames}. Chave: ${credentials.pixKey}` },
+    );
+    await ctx.reply(`PIX copia e cola (${currency(total)}):\n${payment.pixCode}`);
+    return ctx.reply("Depois de pagar, envie o comprovante como foto nesta conversa.");
+  }
+  if (payment.qrCodeBase64) {
+    await ctx.replyWithPhoto(Buffer.from(payment.qrCodeBase64, "base64"), {
+      caption: `PIX de ${currency(total)} para ${productNames}.`,
+    });
+  }
+  const providerLabel = payment.provider === "amplopay" ? " AmploPay" : "";
+  return ctx.reply(`PIX copia e cola${providerLabel} (${currency(total)}):\n${payment.pixCode}`);
 }
 
 function createCpf() {

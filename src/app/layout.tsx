@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
-import { Bebas_Neue } from "next/font/google";
+import { Bebas_Neue, Geist } from "next/font/google";
 import "./globals.css";
+
+const geist = Geist({
+  variable: "--font-geist",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 const bebasNeue = Bebas_Neue({
   variable: "--font-bebas-neue",
@@ -20,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="pt-BR"
-      className={`${bebasNeue.variable} h-full antialiased`}
+      className={`${geist.variable} ${bebasNeue.variable} dark h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <Providers>

@@ -38,6 +38,9 @@ export default async function DashboardLayout({
           <Link href="/dashboard/sales" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-900 hover:text-white transition-colors">
             💸 Vendas
           </Link>
+          <Link href="/dashboard/integrations" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-900 hover:text-white transition-colors">
+            🔌 Integrações
+          </Link>
           {isAdminEmail(session.user?.email) && (
             <Link href="/dashboard/admin" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-900 hover:text-white transition-colors">
               🛡️ Administração
@@ -70,6 +73,7 @@ export default async function DashboardLayout({
           <Link href="/dashboard/bots" className="shrink-0 rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Bots</Link>
           <Link href="/dashboard/products" className="shrink-0 rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Produtos</Link>
           <Link href="/dashboard/sales" className="shrink-0 rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Vendas</Link>
+          <Link href="/dashboard/integrations" className="shrink-0 rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Integrações</Link>
           {isAdminEmail(session.user?.email) && (
             <Link href="/dashboard/admin" className="shrink-0 rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Administração</Link>
           )}

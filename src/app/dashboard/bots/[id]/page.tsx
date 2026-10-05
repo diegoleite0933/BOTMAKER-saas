@@ -122,10 +122,6 @@ export default async function BotConfigPage({ params }: { params: Promise<{ id: 
         <PaymentSettingsForm 
           botId={bot.id} 
           initialMethod={bot.paymentMethod || "mercadopago"} 
-          initialPix={bot.pixKey} 
-          initialMpToken={bot.mpAccessToken} 
-          initialAmploId={bot.amploPayClientId}
-          initialAmploSecret={bot.amploPayClientSecret}
           initialPixReviewChatId={bot.pixReviewChatId}
         />
       </div>

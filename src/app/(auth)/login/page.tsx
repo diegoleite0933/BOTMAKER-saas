@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { Brand } from "@/components/Brand";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,7 +41,6 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex min-h-dvh w-full items-center justify-center bg-slate-50 px-4 py-8">
-      <ThemeToggle className="absolute right-4 top-4" />
       <div className="w-full max-w-md space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-md sm:p-8">
         <div className="flex flex-col items-center space-y-2 text-center">
           <Brand className="text-slate-950" />

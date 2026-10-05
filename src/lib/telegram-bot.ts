@@ -4,6 +4,7 @@ import { generatePixQr } from "@/lib/pix-code";
 import { createMercadoPagoPix, createAmploPayPix } from "@/lib/payment-gateways";
 import { registerPurchaseActions } from "@/lib/telegram-purchase.js";
 import { registerStartMenu } from "@/lib/telegram-start.js";
+import { resolvePaymentCredentials } from "@/lib/payment-credentials.js";
 import { deliverPaidOrder } from "@/lib/product-delivery.js";
 
 const prisma = new PrismaClient();
@@ -52,12 +53,13 @@ export function getBot(botRecord: Bot): Telegraf {
       });
 
       if (product.bot.paymentMethod === "pix_direto") {
-        if (!product.bot.pixKey) {
+        const credentials = await resolvePaymentCredentials(prisma, product.bot, "pix_direto");
+        if (!credentials.pixKey) {
           return ctx.reply("❌ O administrador do bot ainda não configurou a Chave PIX.");
         }
 
         const { copyPasteCode, qrCode } = await generatePixQr({
-          pixKey: product.bot.pixKey,
+          pixKey: credentials.pixKey,
           merchantName: product.bot.name,
           merchantCity: process.env.PIX_MERCHANT_CITY || "SAO PAULO",
           amount: product.price,
@@ -88,7 +90,7 @@ export function getBot(botRecord: Bot): Telegraf {
 
       // Caso Mercado Pago
       if (product.bot.paymentMethod === "mercadopago") {
-        const mpAccessToken = product.bot.mpAccessToken || process.env.MERCADOPAGO_ACCESS_TOKEN;
+        const { accessToken: mpAccessToken } = await resolvePaymentCredentials(prisma, product.bot, "mercadopago");
         if (!mpAccessToken || mpAccessToken === "seu_access_token_aqui") {
           return ctx.reply("❌ O administrador do bot ainda não configurou o Mercado Pago.");
         }
@@ -139,8 +141,7 @@ export function getBot(botRecord: Bot): Telegraf {
 
       // Caso Amplo Pay
       if (product.bot.paymentMethod === "amplopay") {
-        const clientId = product.bot.amploPayClientId || process.env.AMPLOPAY_CLIENT_ID;
-        const clientSecret = product.bot.amploPayClientSecret || process.env.AMPLOPAY_CLIENT_SECRET;
+        const { clientId, clientSecret } = await resolvePaymentCredentials(prisma, product.bot, "amplopay");
 
         if (!clientId || !clientSecret) {
           return ctx.reply("❌ O administrador do bot ainda não configurou as chaves da Amplo Pay.");

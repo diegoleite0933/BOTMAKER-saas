@@ -24,9 +24,25 @@ model User {
   updatedAt DateTime  @updatedAt
 
   workspaces Workspace[]
+  paymentIntegrations PaymentIntegration[]
 
   @@index([nickname])
   @@index([cpf])
+}
+
+model PaymentIntegration {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider             String
+  encryptedCredentials String
+  lastTestAt           DateTime?
+  lastTestStatus       String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([userId, provider])
+  @@index([provider])
 }
 
 model Workspace {
@@ -164,6 +180,7 @@ model Order {
   
   paymentGateway String       @default("mercadopago")
   paymentId      String?      @unique // ID gerado pelo Mercado Pago
+  webhookSignature String?
   paymentQrCode  String?
   paymentTicketUrl String?
   receiptUrl     String?      // Imagem do comprovante enviado (caso pix_direto)
