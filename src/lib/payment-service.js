@@ -74,6 +74,7 @@ const providerFactories = {
       qrCodeBase64: payment.qrCodeBase64,
       ticketUrl: payment.ticketUrl,
       identifier: payment.identifier,
+      platformFeeSplitRequested: request.applicationFeeCents === 30,
     };
   },
 };

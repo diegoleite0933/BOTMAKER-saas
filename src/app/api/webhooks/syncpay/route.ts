@@ -6,6 +6,7 @@ import { resolvePaymentCredentials } from "@/lib/payment-credentials.js";
 import { normalizeSyncPayStatus, verifySyncPayWebhookSignature } from "@/lib/syncpay.js";
 import { getSyncPayTransaction } from "@/lib/syncpay.js";
 import { recordPlatformFeeRefund } from "@/lib/platform-fees.js";
+import { resolvePlatformReceivingCredentials } from "@/lib/payment-credentials.js";
 
 const prisma = new PrismaClient();
 
@@ -128,8 +129,10 @@ export async function POST(req: Request) {
       });
 
       if (officialStatus === "paid" && !["paid", "refunded"].includes(order.status)) {
+        const platformReceiving = await resolvePlatformReceivingCredentials(prisma, "syncpay");
+        const splitConfirmed = order.platformFeeSplitRequested === true || Boolean(platformReceiving?.clientId && platformReceiving?.clientSecret);
         const bot = new Telegraf(order.bot.token);
-        await deliverPaidOrder({ prisma, bot, order });
+        await deliverPaidOrder({ prisma, bot, order, splitConfirmed, splitReference: identifier });
       } else if (officialStatus === "refunded" && order.status === "paid") {
         const result = await prisma.$transaction(async (transaction) => {
           await transaction.order.updateMany({ where: { id: order.id, status: "paid" }, data: { status: "refunded" } });

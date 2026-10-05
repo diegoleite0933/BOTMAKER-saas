@@ -91,9 +91,9 @@ async function checkout(ctx, prisma, botRecord, product, bumpProduct, discountOv
     ...(bumpProduct ? [{ product: bumpProduct, price: salePrice(bumpProduct, bumpDiscountPercent) }] : []),
   ];
   const appUrl = process.env.APP_URL || "http://localhost:3000";
-  const platformCredentials = provider === "mercadopago" && credentials.marketplaceOAuth === true
-    ? await resolvePlatformReceivingCredentials(prisma, "mercadopago")
-    : null;
+  const platformCredentials = provider === "mercadopago"
+    ? (credentials.marketplaceOAuth === true ? await resolvePlatformReceivingCredentials(prisma, "mercadopago") : null)
+    : await resolvePlatformReceivingCredentials(prisma, provider);
   const applicationFeeCents = platformCredentials?.clientId && platformCredentials?.clientSecret ? 30 : null;
   const payment = await createPixPayment({
     provider,
