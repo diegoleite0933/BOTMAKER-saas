@@ -34,12 +34,12 @@ export default function NewBotPage() {
         throw new Error(data.message || "Erro ao conectar bot");
       }
 
-      setSuccess("Bot conectado com sucesso! O webhook foi configurado.");
+      setSuccess("Bot conectado com sucesso! O atendimento será ativado automaticamente.");
       setTimeout(() => {
         router.push("/dashboard/bots");
       }, 2000);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro inesperado ao conectar o bot.");
       setLoading(false);
     }
   };

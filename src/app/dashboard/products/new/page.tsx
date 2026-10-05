@@ -124,12 +124,13 @@ export default function NewProductPage() {
                 <Label htmlFor="billing-type">Tipo de cobrança</Label>
                 <select id="billing-type" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={billingType} onChange={(event) => setBillingType(event.target.value as "one_time" | "recurring")}>
                   <option value="one_time">Única (PIX avulso)</option>
-                  <option value="recurring">Recorrente / assinatura</option>
+                  <option value="recurring">Recorrente (renovação automática indisponível)</option>
                 </select>
               </div>
 
               {billingType === "recurring" && (
                 <div className="space-y-2">
+                  <p className="text-xs text-amber-700">O intervalo será registrado no pedido, mas não serão criadas cobranças futuras automaticamente.</p>
                   <Label htmlFor="recurring-interval">Frequência</Label>
                   <select id="recurring-interval" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={recurringInterval} onChange={(event) => setRecurringInterval(event.target.value as "monthly" | "quarterly" | "yearly")}>
                     <option value="monthly">Mensal</option>

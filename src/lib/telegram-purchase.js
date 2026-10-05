@@ -67,6 +67,8 @@ async function checkout(ctx, prisma, botRecord, product, bumpProduct, discountOv
     amount: total,
     discountPercent,
     bumpDiscountPercent,
+    billingType: product.billingType || "one_time",
+    recurringInterval: product.billingType === "recurring" ? (product.recurringInterval || "monthly") : null,
   };
   const provider = botRecord.paymentMethod;
   const credentials = await resolvePaymentCredentials(prisma, botRecord, provider);
@@ -80,6 +82,9 @@ async function checkout(ctx, prisma, botRecord, product, bumpProduct, discountOv
   if (provider === "pix_direto" && !credentials.pixKey) {
     return ctx.reply("O administrador ainda não configurou a chave PIX.");
   }
+  if (provider === "syncpay" && (!credentials.clientId || !credentials.clientSecret)) {
+    return ctx.reply("O administrador ainda não configurou a SyncPay.");
+  }
 
   const items = [
     { product, price: salePrice(product, discountPercent) },
@@ -92,7 +97,9 @@ async function checkout(ctx, prisma, botRecord, product, bumpProduct, discountOv
     orderId,
     amount: total,
     description: productNames,
-    notificationUrl: `${appUrl}/api/webhooks/mercadopago`,
+    billingType: product.billingType || "one_time",
+    recurringInterval: product.billingType === "recurring" ? (product.recurringInterval || "monthly") : "monthly",
+    notificationUrl: `${appUrl}/api/webhooks/${provider === "syncpay" ? "syncpay" : "mercadopago"}`,
     payerEmail: `tg_${ctx.from.id}@botmaker.local`,
     payerName: ctx.from.first_name || "Cliente Telegram",
     merchantName: botRecord.name,
@@ -120,7 +127,8 @@ async function checkout(ctx, prisma, botRecord, product, bumpProduct, discountOv
       paymentQrCode: payment.pixCode,
       paymentTicketUrl: payment.ticketUrl || undefined,
       webhookSignature: webhookSignature || undefined,
-      webhookSignature: webhookSignature || undefined,
+      billingType: orderData.billingType,
+      recurringInterval: orderData.recurringInterval,
     },
   });
 

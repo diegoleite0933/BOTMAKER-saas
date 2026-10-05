@@ -56,6 +56,14 @@ async function resolveTenantSyncPayCredentials(prisma, workspaceId) {
   }
 }
 
+function readEnvValue(...keys) {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
 async function resolvePaymentCredentials(prisma, bot, provider) {
   const workspace = await prisma.workspace.findUnique({
     where: { id: bot.workspaceId },
@@ -70,11 +78,11 @@ async function resolvePaymentCredentials(prisma, bot, provider) {
     if (integration) return decryptPaymentCredentials(integration.encryptedCredentials);
   }
 
-  if (provider === "mercadopago") return { accessToken: bot.mpAccessToken || process.env.MERCADOPAGO_ACCESS_TOKEN || "" };
+  if (provider === "mercadopago") return { accessToken: bot.mpAccessToken || readEnvValue("MERCADOPAGO_ACCESS_TOKEN") || "" };
   if (provider === "amplopay") {
     return {
-      clientId: bot.amploPayClientId || process.env.AMPLOPAY_CLIENT_ID || "",
-      clientSecret: bot.amploPayClientSecret || process.env.AMPLOPAY_CLIENT_SECRET || "",
+      clientId: bot.amploPayClientId || readEnvValue("AMPLOPAY_CLIENT_ID") || "",
+      clientSecret: bot.amploPayClientSecret || readEnvValue("AMPLOPAY_CLIENT_SECRET") || "",
     };
   }
   if (provider === "pix_direto") return { pixKey: bot.pixKey || "" };
@@ -83,8 +91,8 @@ async function resolvePaymentCredentials(prisma, bot, provider) {
     if (scoped && scoped.clientId && scoped.clientSecret) return scoped;
 
     return {
-      clientId: process.env.SYNC_PAY_CLIENT_ID || "",
-      clientSecret: process.env.SYNC_PAY_CLIENT_SECRET || "",
+      clientId: readEnvValue("SYNC_PAY_CLIENT_ID", "SYNCPAY_CLIENT_ID", "SYNC_PAY_CLIENTID", "SYNCPAY_CLIENTID") || "",
+      clientSecret: readEnvValue("SYNC_PAY_CLIENT_SECRET", "SYNCPAY_CLIENT_SECRET", "SYNC_PAY_CLIENTSECRET", "SYNCPAY_CLIENTSECRET") || "",
     };
   }
   return {};

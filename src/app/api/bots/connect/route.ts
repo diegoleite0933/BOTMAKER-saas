@@ -48,15 +48,6 @@ export async function POST(req: Request) {
       }
     });
 
-    // 4. Configurar Webhook
-    // Como estamos em localhost, o Telegram não vai aceitar a URL, 
-    // então em dev não vamos forçar o setWebhook a quebrar a requisição.
-    const appUrl = process.env.APP_URL || "http://localhost:3000";
-    if (appUrl.startsWith("https")) {
-      const webhookUrl = `${appUrl}/api/webhook/telegram/${newBot.id}`;
-      await fetch(`https://api.telegram.org/bot${token}/setWebhook?url=${webhookUrl}`);
-    }
-
     return NextResponse.json({ 
       message: "Bot conectado com sucesso",
       bot: { id: newBot.id, username: newBot.username } 

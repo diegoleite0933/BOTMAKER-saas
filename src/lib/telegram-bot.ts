@@ -2,6 +2,7 @@ import { Telegraf } from "telegraf";
 import { PrismaClient, Bot } from "@prisma/client";
 import { generatePixQr } from "@/lib/pix-code";
 import { createMercadoPagoPix, createAmploPayPix } from "@/lib/payment-gateways";
+import { createPixPayment } from "@/lib/payment-service.js";
 import { registerPurchaseActions } from "@/lib/telegram-purchase.js";
 import { registerStartMenu } from "@/lib/telegram-start.js";
 import { resolvePaymentCredentials } from "@/lib/payment-credentials.js";
@@ -136,6 +137,62 @@ export function getBot(botRecord: Bot): Telegraf {
           });
         }
         await ctx.reply(`Pix copia e cola (${amountLabel}):\n${paymentData.pixCode}`);
+        return;
+      }
+
+      // Caso SyncPay
+      if (product.bot.paymentMethod === "syncpay") {
+        const { clientId, clientSecret, accessToken } = await resolvePaymentCredentials(prisma, product.bot, "syncpay");
+        if (!clientId || !clientSecret) {
+          return ctx.reply("❌ O administrador do bot ainda não configurou a SyncPay.");
+        }
+
+        const baseUrl = process.env.APP_URL || "http://localhost:3000";
+        const webhookUrl = `${baseUrl}/api/webhooks/syncpay`;
+
+        const amount = Number(product.price || 0);
+        const payload = {
+          provider: "syncpay",
+          credentials: { clientId, clientSecret, accessToken },
+          orderId,
+          amount,
+          description: product.name,
+          billingType: product.billingType || "one_time",
+          recurringInterval: product.billingType === "recurring" ? (product.recurringInterval || "monthly") : "monthly",
+          notificationUrl: webhookUrl,
+          payerEmail: `tg_${ctx.from.id}@botmaker.local`,
+          payerName: ctx.from.first_name || "Cliente Telegram",
+          phone: "11999999999",
+          cpf: "00000000000",
+        };
+
+        let paymentData;
+        try {
+          paymentData = await createPixPayment(payload);
+        } catch (error) {
+          console.error("SyncPay Pix error:", error);
+          return ctx.reply("❌ Não foi possível gerar o Pix na SyncPay. Confira as credenciais cadastradas.");
+        }
+
+        await prisma.order.create({
+          data: {
+            id: orderId,
+            botId: product.botId,
+            productId: product.id,
+            telegramUserId: ctx.from.id.toString(),
+            status: "pending",
+            amount: product.price,
+            paymentId: paymentData.paymentId || undefined,
+            paymentQrCode: paymentData.pixCode,
+            paymentTicketUrl: paymentData.ticketUrl || undefined,
+            paymentGateway: "syncpay",
+            billingType: payload.billingType,
+            recurringInterval: payload.billingType === "recurring" ? payload.recurringInterval : null,
+          }
+        });
+
+        const amountLabel = product.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+        await ctx.reply(`SyncPay (${amountLabel}):\n${paymentData.pixCode}`);
         return;
       }
 

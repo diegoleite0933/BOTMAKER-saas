@@ -163,7 +163,7 @@ model ProductDelivery {
 // ==========================================
 
 model TelegramUser {
-  id          String   @id // ID do Telegram (não auto-increment)
+  id          String   // ID do Telegram (não auto-increment)
   botId       String
   bot         Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
   firstName   String?
@@ -178,7 +178,7 @@ model TelegramUser {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@unique([id, botId]) // Um cliente pode interagir com múltiplos bots separadamente
+  @@id([id, botId]) // O mesmo cliente pode existir em bots diferentes
 }
 
 // ==========================================
@@ -203,6 +203,8 @@ model Order {
   currency       String       @default("BRL")
   
   paymentGateway String       @default("mercadopago")
+  billingType    String       @default("one_time") // one_time, recurring
+  recurringInterval String?    // monthly, quarterly, yearly
   paymentId      String?      @unique // ID gerado pelo Mercado Pago
   webhookSignature String?
   paymentQrCode  String?
