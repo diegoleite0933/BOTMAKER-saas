@@ -4,11 +4,47 @@ import { Telegraf } from "telegraf";
 import { deliverPaidOrder } from "@/lib/product-delivery.js";
 import { resolvePaymentCredentials } from "@/lib/payment-credentials.js";
 import { normalizeSyncPayStatus, verifySyncPayWebhookSignature } from "@/lib/syncpay.js";
-import { getSyncPayTransaction } from "@/lib/syncpay.js";
-import { recordPlatformFeeRefund } from "@/lib/platform-fees.js";
+import { getSyncPayTransaction, createSyncPayWithdrawal } from "@/lib/syncpay.js";
+import { markPlatformFeeReceived, recordPlatformFeeRefund } from "@/lib/platform-fees.js";
 import { resolvePlatformReceivingCredentials } from "@/lib/payment-credentials.js";
 
 const prisma = new PrismaClient();
+
+async function findOrderBySyncPayIdentifier(identifier: string) {
+  const exact = await prisma.order.findFirst({
+    where: { paymentId: identifier },
+    include: { bot: true, product: { include: { deliveries: true } }, bumpProduct: { include: { deliveries: true } } },
+  });
+  if (exact) return exact;
+
+  return prisma.order.findFirst({
+    where: { paymentId: { contains: identifier } },
+    include: { bot: true, product: { include: { deliveries: true } }, bumpProduct: { include: { deliveries: true } } },
+  });
+}
+
+async function triggerPlatformFeePayout(order: any, platformReceiving: any) {
+  if (!platformReceiving?.clientId || !platformReceiving?.clientSecret) return null;
+
+  const amount = 0.3;
+  const result = await createSyncPayWithdrawal({
+    accessToken: platformReceiving.accessToken || undefined,
+    clientId: platformReceiving.clientId,
+    clientSecret: platformReceiving.clientSecret,
+    amount,
+    description: `Taxa da plataforma - pedido ${order.id}`,
+    currency: "BRL",
+  });
+
+  await prisma.$transaction(async (transaction) => {
+    await markPlatformFeeReceived(transaction, order, {
+      providerReference: result.id || result.raw?.id || `syncpay_payout_${order.id}`,
+      confirmedAmountCents: 30,
+    });
+  });
+
+  return result;
+}
 
 function readWebhookIdentifier(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
@@ -87,10 +123,7 @@ export async function POST(req: Request) {
     }
 
     const signatureHeader = req.headers.get("x-syncpay-signature") || req.headers.get("x-signature") || req.headers.get("x-webhook-signature");
-    const order = await prisma.order.findFirst({
-      where: { paymentId: identifier },
-      include: { bot: true, product: { include: { deliveries: true } }, bumpProduct: { include: { deliveries: true } } },
-    });
+    const order = await findOrderBySyncPayIdentifier(identifier);
 
     if (order) {
       const credentials = await resolvePaymentCredentials(prisma, order.bot, "syncpay");
@@ -117,22 +150,39 @@ export async function POST(req: Request) {
       }
 
       const eventKey = { source: "syncpay", eventId: `${identifier}:${officialStatus}` };
-      const existingEvent = await prisma.webhookEvent.findUnique({ where: { source_eventId: eventKey } });
+      const existingEvent = await prisma.webhookEvent.findUnique({
+        where: { source_eventId: { source: eventKey.source, eventId: eventKey.eventId } },
+      });
       if (existingEvent?.status === "processed") {
         return NextResponse.json({ received: true, duplicate: true }, { status: 200 });
       }
 
       await prisma.webhookEvent.upsert({
-        where: { source_eventId: eventKey },
-        create: { ...eventKey, payload: rawBody, status: "pending" },
+        where: { source_eventId: { source: eventKey.source, eventId: eventKey.eventId } },
+        create: { source: eventKey.source, eventId: eventKey.eventId, payload: rawBody, status: "pending" },
         update: { payload: rawBody, status: "pending", error: null },
       });
 
       if (officialStatus === "paid" && !["paid", "refunded"].includes(order.status)) {
         const platformReceiving = await resolvePlatformReceivingCredentials(prisma, "syncpay");
         const splitConfirmed = order.platformFeeSplitRequested === true || Boolean(platformReceiving?.clientId && platformReceiving?.clientSecret);
+        if (!order.platformFeeSplitRequested && splitConfirmed) {
+          await prisma.order.update({ where: { id: order.id }, data: { platformFeeSplitRequested: true } });
+          order.platformFeeSplitRequested = true;
+        }
         const bot = new Telegraf(order.bot.token);
         await deliverPaidOrder({ prisma, bot, order, splitConfirmed, splitReference: identifier });
+
+        if (splitConfirmed && platformReceiving) {
+          try {
+            const payout = await triggerPlatformFeePayout(order, platformReceiving);
+            if (payout) {
+              console.info(`[SYNC_PAY_PAYOUT] order=${order.id} withdrawal=${payout.id} status=${payout.status} amount=${payout.amount}`);
+            }
+          } catch (payoutError) {
+            console.error("Erro ao repassar taxa SyncPay para a conta receptora da plataforma:", payoutError);
+          }
+        }
       } else if (officialStatus === "refunded" && order.status === "paid") {
         const result = await prisma.$transaction(async (transaction) => {
           await transaction.order.updateMany({ where: { id: order.id, status: "paid" }, data: { status: "refunded" } });
@@ -149,7 +199,7 @@ export async function POST(req: Request) {
       }
 
       await prisma.webhookEvent.update({
-        where: { source_eventId: eventKey },
+        where: { source_eventId: { source: eventKey.source, eventId: eventKey.eventId } },
         data: { status: "processed", error: null },
       });
 
