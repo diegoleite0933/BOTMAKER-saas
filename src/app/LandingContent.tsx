@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Brand } from "@/components/Brand";
 import { LandingNavigation } from "@/components/LandingNavigation";
 import { LandingPhoneMockup } from "@/components/LandingPhoneMockup";
+import { RevenueMilestonesCarousel } from "@/components/RevenueMilestonesCarousel";
 
 const capabilities = [
   { icon: Bot, title: "Bots e entregas", description: "Controle clientes, acessos e entregas em um só lugar." },
@@ -114,6 +115,104 @@ export function LandingContent() {
             <div className="premium-float relative w-full max-w-[560px]">
               <LandingPhoneMockup />
             </div>
+          </div>
+        </section>
+
+        <section className="relative mx-auto max-w-7xl px-4 pb-8 pt-2 sm:px-6">
+          <div className="rounded-[32px] border border-[#1c384d] bg-[linear-gradient(135deg,rgba(10,22,32,0.95),rgba(7,12,18,0.96))] p-5 shadow-[0_24px_80px_rgba(15,109,255,0.12)] sm:p-8">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#79baff]">Promoção ativa</p>
+                <h2 className="mt-3 text-2xl font-semibold tracking-[-0.06em] text-white sm:text-3xl">Taxa fixa de R$ 0,30 por venda.</h2>
+              </div>
+
+              <div className="rounded-2xl border border-[#204767] bg-[#0a1723] px-4 py-3 text-center">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-[#8ec2ff]">PIX direto</div>
+                <div className="mt-1 text-lg font-bold text-[#aef2d0]">R$ 0,00</div>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              {[
+                { title: "Sem mensalidade", text: "Você paga apenas quando a venda acontece." },
+                { title: "Preço transparente", text: "Sem taxa escondida, sem surprises no fechamento." },
+                { title: "Mais barato que a concorrência", text: "Em comparação com plataformas que cobram porcentagem ou mensalidade." },
+              ].map(({ title, text }) => (
+                <div key={title} className="rounded-2xl border border-white/8 bg-[#0d141b] p-4">
+                  <div className="text-sm font-semibold text-white">{title}</div>
+                  <p className="mt-2 text-sm leading-relaxed text-[#8ea3b8]">{text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <RevenueMilestonesCarousel />
+
+        <section id="comparativo" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5aa9ff]">Comparativo</p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-white sm:text-4xl">O Odisseia Bot fica melhor em custo, clareza e controle.</h2>
+          </div>
+
+          <div className="mt-10 grid gap-5 lg:grid-cols-3">
+            {[
+              {
+                name: "Outros sites",
+                fee: "3% a 8% por venda",
+                extra: "+ mensalidade fixa",
+                details: ["Taxa pesada em cada venda", "Mensalidade extra", "Estrutura menos transparente", "Cobrança escondida em alguns planos"],
+                highlight: false,
+              },
+              {
+                name: "Marketplaces tradicionais",
+                fee: "2% a 5% + taxa de operação",
+                extra: "+ comissão por cada transação",
+                details: ["Cobrança por volume", "Menos controle do cliente", "Falta de autonomia na operação", "Pior margem para crescer"],
+                highlight: false,
+              },
+              {
+                name: "Odisseia Bot",
+                fee: "R$ 0,30 por venda",
+                extra: "sem mensalidade fixa",
+                details: ["Custo previsível", "Pagamento só quando a venda ocorre", "Controle total do fluxo", "Mais margem para escalar"],
+                highlight: true,
+              },
+            ].map(({ name, fee, extra, details, highlight }) => (
+              <div
+                key={name}
+                className={[
+                  "rounded-[30px] border p-6",
+                  highlight
+                    ? "border-[#2a7ef7] bg-[linear-gradient(180deg,#0d1e2e,#08141c)] shadow-[0_20px_50px_rgba(35,138,255,0.15)]"
+                    : "border-white/10 bg-[#0a1117]",
+                ].join(" ")}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="text-lg font-semibold text-white">{name}</div>
+                  {highlight && (
+                    <span className="rounded-full border border-[#7ec7ff]/40 bg-[#0d2643] px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#7ec7ff]">
+                      Melhor custo
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-white/8 bg-[#0f171f] p-4">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-[#8ec2ff]">Taxa</div>
+                  <div className="mt-2 text-2xl font-semibold tracking-[-0.06em] text-white">{fee}</div>
+                  <div className="mt-1 text-sm text-[#9fb1c4]">{extra}</div>
+                </div>
+
+                <ul className="mt-5 space-y-3">
+                  {details.map((item) => (
+                    <li key={item} className="flex items-start gap-3 text-sm leading-relaxed text-[#cddae7]">
+                      <span className="mt-1 flex size-5 items-center justify-center rounded-full bg-[#163f66] text-[10px] font-bold text-[#7ec7ff]">✓</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         </section>
 
