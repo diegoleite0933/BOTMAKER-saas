@@ -156,6 +156,133 @@ async function getSyncPayTransaction({ accessToken, clientId, clientSecret, iden
   return response.json();
 }
 
+async function getSyncPayBalance({ accessToken, clientId, clientSecret, fetchImpl = fetch } = {}) {
+  const token = accessToken || (clientId && clientSecret ? (await exchangeSyncPayAccessToken({ clientId, clientSecret, fetchImpl })).accessToken : "");
+  if (!token) {
+    throw new Error("A autenticação da SyncPay está ausente para consultar o saldo.");
+  }
+
+  const endpointCandidates = [
+    `${SYNC_PAY_BASE_URL}/balance`,
+    `${SYNC_PAY_BASE_URL}/user/balance`,
+    `${SYNC_PAY_BASE_URL}/partner/balance`,
+  ];
+
+  let lastError = "Não foi possível consultar o saldo na SyncPay.";
+  for (const url of endpointCandidates) {
+    try {
+      const response = await fetchImpl(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (!response.ok) {
+        lastError = await response.text().catch(() => response.statusText || lastError);
+        continue;
+      }
+
+      const data = await response.json();
+      const availableBalance = Number(data.available_balance ?? data.availableBalance ?? data.balance ?? data.amount ?? 0);
+      return {
+        availableBalance,
+        balance: availableBalance,
+        currency: data.currency || data.moneda || "BRL",
+        status: data.status || data.state || null,
+        raw: data,
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : lastError;
+    }
+  }
+
+  throw new Error(lastError);
+}
+
+async function createSyncPayWithdrawal({
+  accessToken,
+  clientId,
+  clientSecret,
+  amount,
+  description,
+  currency = "BRL",
+  destination,
+  pixKey,
+  bankAccount,
+  fetchImpl = fetch,
+} = {}) {
+  if (amount === undefined || amount === null || Number(amount) <= 0) {
+    throw new Error("Informe um valor válido para o saque da SyncPay.");
+  }
+
+  const token = accessToken || (clientId && clientSecret ? (await exchangeSyncPayAccessToken({ clientId, clientSecret, fetchImpl })).accessToken : "");
+  if (!token) {
+    throw new Error("A autenticação da SyncPay está ausente para solicitar o saque.");
+  }
+
+  const numericAmount = Number(amount);
+  const payloadBase = {
+    amount: numericAmount,
+    value: numericAmount,
+    description: description || "Saque da conta da plataforma",
+    note: description || "Saque da conta da plataforma",
+    currency,
+    moeda: currency,
+    recipient: destination || null,
+    destination: destination || null,
+    pix_key: pixKey || null,
+    pixKey: pixKey || null,
+    bank_account: bankAccount || null,
+    bankAccount: bankAccount || null,
+  };
+
+  const endpointCandidates = [
+    `${SYNC_PAY_BASE_URL}/withdraw`,
+    `${SYNC_PAY_BASE_URL}/withdrawal`,
+    `${SYNC_PAY_BASE_URL}/cash-out`,
+    `${SYNC_PAY_BASE_URL}/payout`,
+    `${SYNC_PAY_BASE_URL}/transfer`,
+    `${SYNC_PAY_BASE_URL}/withdrawals`,
+    `${SYNC_PAY_BASE_URL}/saque`,
+  ];
+
+  let lastError = "Não foi possível solicitar o saque da SyncPay.";
+  for (const url of endpointCandidates) {
+    try {
+      const response = await fetchImpl(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payloadBase),
+        signal: AbortSignal.timeout(20000),
+      });
+
+      if (!response.ok) {
+        lastError = await response.text().catch(() => response.statusText || lastError);
+        continue;
+      }
+
+      const data = await response.json();
+      return {
+        id: data.id || data.identifier || data.withdrawalId || data.transactionId || null,
+        status: data.status || data.state || "queued",
+        amount: Number(data.amount ?? data.value ?? numericAmount),
+        currency: data.currency || data.moneda || currency,
+        raw: data,
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : lastError;
+    }
+  }
+
+  throw new Error(lastError);
+}
+
 module.exports = {
   SYNC_PAY_BASE_URL,
   getSyncPayBaseUrl,
@@ -164,4 +291,6 @@ module.exports = {
   exchangeSyncPayAccessToken,
   createSyncPayPixCharge,
   getSyncPayTransaction,
+  getSyncPayBalance,
+  createSyncPayWithdrawal,
 };

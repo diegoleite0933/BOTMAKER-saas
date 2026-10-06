@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { verifySyncPayWebhookSignature, getSyncPayBaseUrl, normalizeSyncPayStatus } = require('../src/lib/syncpay.js');
+const { verifySyncPayWebhookSignature, getSyncPayBaseUrl, normalizeSyncPayStatus, getSyncPayBalance, createSyncPayWithdrawal } = require('../src/lib/syncpay.js');
 const { encryptPaymentCredentials } = require('../src/lib/payment-credentials.js');
 const { resolvePaymentCredentials } = require('../src/lib/payment-credentials.js');
 const { SUPPORTED_PAYMENT_METHODS, normalizeBillingType, normalizeRecurringInterval } = require('../src/lib/payment-options.js');
@@ -62,6 +62,41 @@ test('tenant-scoped SyncPay credentials are preferred over global env fallback',
   } finally {
     process.env.SYNC_PAY_CLIENT_SECRET = secret;
   }
+});
+
+test('SyncPay balance lookup reads the official balance endpoint and normalizes fields', async () => {
+  const fetchImpl = async (url, options = {}) => {
+    assert.equal(url, 'https://api.syncpayments.com.br/api/partner/v1/balance');
+    assert.equal(options.method, undefined);
+    return {
+      ok: true,
+      json: async () => ({ available_balance: 159.50, currency: 'BRL', status: 'available' }),
+    };
+  };
+
+  const result = await getSyncPayBalance({ accessToken: 'token-123', fetchImpl });
+  assert.equal(result.availableBalance, 159.5);
+  assert.equal(result.currency, 'BRL');
+  assert.equal(result.status, 'available');
+});
+
+test('SyncPay withdrawal request retries common payout endpoints and normalizes result', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url, method: options.method || 'GET' });
+    if (url.endsWith('/withdraw')) {
+      return {
+        ok: true,
+        json: async () => ({ id: 'with_001', status: 'queued', amount: 12.30, currency: 'BRL' }),
+      };
+    }
+    return { ok: false, text: async () => 'not found' };
+  };
+
+  const result = await createSyncPayWithdrawal({ accessToken: 'token-456', amount: 12.30, description: 'Taxa da plataforma', fetchImpl });
+  assert.equal(result.id, 'with_001');
+  assert.equal(result.status, 'queued');
+  assert.equal(calls.some((call) => call.url.endsWith('/withdraw')), true);
 });
 
 test('SyncPay is supported as a bot payment method and recurring plans allow subscription billing', () => {
