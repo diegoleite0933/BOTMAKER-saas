@@ -8,6 +8,7 @@ const { deliverPaidOrder } = require("./src/lib/product-delivery.js");
 const prisma = new PrismaClient();
 
 const runningBots = new Map();
+const startingBots = new Set();
 
 async function handlePixReview(ctx, action, orderId, bot) {
   const order = await prisma.order.findUnique({
@@ -156,8 +157,9 @@ async function processRemarketing(botRecord, bot) {
 }
 
 async function startBot(botRecord) {
-  if (runningBots.has(botRecord.id)) return; // Já está rodando
+  if (runningBots.has(botRecord.id) || startingBots.has(botRecord.id)) return;
 
+  startingBots.add(botRecord.id);
   console.log(`[Bot Runner] Iniciando bot: @${botRecord.username}`);
   const bot = new Telegraf(botRecord.token);
   registerPurchaseActions(bot, botRecord, prisma);
@@ -474,13 +476,17 @@ async function startBot(botRecord) {
   runningBots.set(botRecord.id, bot);
 
   const launchBot = () => {
-    bot.launch().catch((error) => {
+    bot.launch({ dropPendingUpdates: true }).then(() => {
+      startingBots.delete(botRecord.id);
+    }).catch((error) => {
+      startingBots.delete(botRecord.id);
+      runningBots.delete(botRecord.id);
       const isPollingConflict = error?.response?.error_code === 409;
       console.error(
         `[Bot Runner] Falha ao iniciar @${botRecord.username}; nova tentativa em breve:`,
         error,
       );
-      const retryTimer = setTimeout(launchBot, isPollingConflict ? 15000 : 30000);
+      const retryTimer = setTimeout(() => startBot(botRecord), isPollingConflict ? 15000 : 30000);
       retryTimer.unref();
     });
   };
@@ -537,4 +543,8 @@ process.once('SIGTERM', () => {
   process.exit(0);
 });
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = { startBot, runningBots, startingBots };
