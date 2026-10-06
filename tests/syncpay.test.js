@@ -83,7 +83,7 @@ test('SyncPay balance lookup reads the official balance endpoint and normalizes 
 test('SyncPay withdrawal request retries common payout endpoints and normalizes result', async () => {
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
-    calls.push({ url, method: options.method || 'GET' });
+    calls.push({ url, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : null });
     if (url.endsWith('/withdraw')) {
       return {
         ok: true,
@@ -93,10 +93,12 @@ test('SyncPay withdrawal request retries common payout endpoints and normalizes 
     return { ok: false, text: async () => 'not found' };
   };
 
-  const result = await createSyncPayWithdrawal({ accessToken: 'token-456', amount: 12.30, description: 'Taxa da plataforma', fetchImpl });
+  const result = await createSyncPayWithdrawal({ accessToken: 'token-456', amount: 12.30, description: 'Taxa da plataforma', pixKey: 'abc123', destination: 'conta-de-destino', fetchImpl });
   assert.equal(result.id, 'with_001');
   assert.equal(result.status, 'queued');
   assert.equal(calls.some((call) => call.url.endsWith('/withdraw')), true);
+  assert.equal(calls[0].body.pix_key, 'abc123');
+  assert.equal(calls[0].body.destination, 'conta-de-destino');
 });
 
 test('SyncPay is supported as a bot payment method and recurring plans allow subscription billing', () => {

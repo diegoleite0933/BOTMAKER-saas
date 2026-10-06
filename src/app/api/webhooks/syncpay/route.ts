@@ -34,6 +34,9 @@ async function triggerPlatformFeePayout(order: any, platformReceiving: any) {
     amount,
     description: `Taxa da plataforma - pedido ${order.id}`,
     currency: "BRL",
+    destination: platformReceiving.payoutDestination || platformReceiving.destination || undefined,
+    pixKey: platformReceiving.payoutPixKey || platformReceiving.pixKey || undefined,
+    bankAccount: platformReceiving.payoutBankAccount || platformReceiving.bankAccount || undefined,
   });
 
   await prisma.$transaction(async (transaction) => {

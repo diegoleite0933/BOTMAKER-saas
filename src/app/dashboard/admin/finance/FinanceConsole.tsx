@@ -74,6 +74,9 @@ export function FinanceConsole() {
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
+  const [payoutPixKey, setPayoutPixKey] = useState("");
+  const [payoutDestination, setPayoutDestination] = useState("");
+  const [payoutBankAccount, setPayoutBankAccount] = useState("");
   const [tenantId, setTenantId] = useState("");
   const [gateway, setGateway] = useState("");
   const [status, setStatus] = useState("");
@@ -135,13 +138,16 @@ export function FinanceConsole() {
       const response = await fetch("/api/admin/platform-fees/receiving-account", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: selectedProvider, clientId, clientSecret, webhookSecret }),
+        body: JSON.stringify({ provider: selectedProvider, clientId, clientSecret, webhookSecret, payoutPixKey, payoutDestination, payoutBankAccount }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || "Não foi possível salvar a conta.");
       setClientId("");
       setClientSecret("");
       setWebhookSecret("");
+      setPayoutPixKey("");
+      setPayoutDestination("");
+      setPayoutBankAccount("");
       setMessage(result.message || "Credenciais validadas com sucesso.");
       setSaveState("success");
       await loadAccount(selectedProvider);
@@ -231,6 +237,22 @@ export function FinanceConsole() {
               <Label htmlFor="platform-webhook-secret">Webhook secret (opcional)</Label>
               <Input id="platform-webhook-secret" type="password" value={webhookSecret} onChange={(event) => setWebhookSecret(event.target.value)} placeholder={selectedProvider === "syncpay" ? "Opcional; a validação usa o client secret do gateway" : "Mantido se vazio; webhook ainda consulta a API oficial"} autoComplete="new-password" />
             </div>
+            {selectedProvider === "syncpay" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="platform-payout-pix-key">Chave PIX para saque</Label>
+                  <Input id="platform-payout-pix-key" value={payoutPixKey} onChange={(event) => setPayoutPixKey(event.target.value)} placeholder="Opcional: chave PIX da conta de destino" autoComplete="off" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="platform-payout-destination">Destino do saque</Label>
+                  <Input id="platform-payout-destination" value={payoutDestination} onChange={(event) => setPayoutDestination(event.target.value)} placeholder="Opcional: conta ou destino do saque" autoComplete="off" />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="platform-payout-bank-account">Conta bancária / identificador da conta de destino</Label>
+                  <Input id="platform-payout-bank-account" value={payoutBankAccount} onChange={(event) => setPayoutBankAccount(event.target.value)} placeholder="Opcional: conta bancária ou identificador interno" autoComplete="off" />
+                </div>
+              </>
+            )}
             <div className="sm:col-span-2">
               <Button type="submit" disabled={busy}>{busy ? "Salvando…" : "Salvar credenciais da plataforma"}</Button>
             </div>

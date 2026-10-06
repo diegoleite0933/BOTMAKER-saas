@@ -76,6 +76,9 @@ export async function PUT(request: Request) {
   const clientId = typeof body.clientId === "string" && body.clientId.trim() ? body.clientId.trim() : previousCredentials.clientId || "";
   const clientSecret = typeof body.clientSecret === "string" && body.clientSecret.trim() ? body.clientSecret.trim() : previousCredentials.clientSecret || "";
   const webhookSecret = typeof body.webhookSecret === "string" && body.webhookSecret.trim() ? body.webhookSecret.trim() : previousCredentials.webhookSecret || "";
+  const payoutPixKey = typeof body.payoutPixKey === "string" ? body.payoutPixKey.trim() : previousCredentials.payoutPixKey || "";
+  const payoutDestination = typeof body.payoutDestination === "string" ? body.payoutDestination.trim() : previousCredentials.payoutDestination || "";
+  const payoutBankAccount = typeof body.payoutBankAccount === "string" ? body.payoutBankAccount.trim() : previousCredentials.payoutBankAccount || "";
 
   if (provider === "syncpay") {
     if (!clientId || !clientSecret || clientId.length > 2048 || clientSecret.length > 2048 || webhookSecret.length > 2048) {
@@ -98,6 +101,9 @@ export async function PUT(request: Request) {
     clientId,
     clientSecret,
     webhookSecret: webhookSecret || previousCredentials.webhookSecret || "",
+    payoutPixKey: payoutPixKey || previousCredentials.payoutPixKey || "",
+    payoutDestination: payoutDestination || previousCredentials.payoutDestination || "",
+    payoutBankAccount: payoutBankAccount || previousCredentials.payoutBankAccount || "",
   };
 
   await prisma.platformReceivingAccount.upsert({
