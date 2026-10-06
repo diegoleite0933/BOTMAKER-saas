@@ -1,3 +1,5 @@
+const { reconcilePaidOrder } = require("./product-delivery.js");
+
 function formatPrice(amount) {
   return amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -11,6 +13,28 @@ function registerStartMenu(bot, botRecord, prisma) {
   bot.start(async (ctx) => {
     try {
       const currentBot = await prisma.bot.findUnique({ where: { id: botRecord.id } });
+      const pendingOrders = await prisma.order.findMany({
+        where: {
+          botId: botRecord.id,
+          telegramUserId: ctx.from.id.toString(),
+          status: { in: ["pending", "review"] },
+          paymentGateway: { not: "pix_direto" },
+        },
+        include: {
+          bot: true,
+          product: { include: { deliveries: true } },
+          bumpProduct: { include: { deliveries: true } },
+        },
+      });
+
+      for (const order of pendingOrders) {
+        try {
+          await reconcilePaidOrder({ prisma, bot, order });
+        } catch (error) {
+          console.error("Erro ao reconciliar pedido pendente:", error);
+        }
+      }
+
       await prisma.telegramUser.upsert({
         where: { id_botId: { id: ctx.from.id.toString(), botId: botRecord.id } },
         update: {

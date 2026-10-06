@@ -59,6 +59,54 @@ test('deliverPaidOrder grants access for a paid order without fee side effects',
   assert.equal(created[0].status, 'active');
 });
 
+test('deliverPaidOrder grants access to every configured delivery for the paid order', async () => {
+  const created = [];
+  const prisma = {
+    $transaction: async (callback) => {
+      const tx = {
+        order: {
+          updateMany: async ({ where, data }) => {
+            assert.equal(where.id, 'order_789');
+            assert.equal(data.status, 'paid');
+            return { count: 1 };
+          },
+        },
+        access: {
+          create: async ({ data }) => {
+            created.push(data);
+            return data;
+          },
+        },
+      };
+      return callback(tx);
+    },
+  };
+
+  const bot = createMockBot();
+  const order = {
+    id: 'order_789',
+    botId: 'bot_3',
+    telegramUserId: '111222',
+    status: 'pending',
+    bot: { workspaceId: 'workspace_3', paymentMethod: 'mercadopago' },
+    product: {
+      name: 'Produto VIP',
+      deliveries: [
+        { id: 'delivery_3', type: 'group', telegramChatId: '-100789', content: null, durationDays: null },
+        { id: 'delivery_4', type: 'text', telegramChatId: null, content: 'https://arquivo.example.com/curso', durationDays: 30 },
+      ],
+    },
+    bumpProduct: null,
+  };
+
+  const result = await deliverPaidOrder({ prisma, bot, order });
+
+  assert.equal(result, true);
+  assert.equal(created.length, 2);
+  assert.deepEqual(created.map((item) => item.deliveryId).sort(), ['delivery_3', 'delivery_4']);
+  assert.ok(created.every((item) => item.status === 'active'));
+});
+
 test('deliverPaidOrder ignores duplicate paid processing to avoid duplicate access', async () => {
   const created = [];
   const prisma = {
