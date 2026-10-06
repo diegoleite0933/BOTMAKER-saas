@@ -118,5 +118,11 @@ export async function PUT(request: Request) {
     ? "Credenciais da conta receptora SyncPay salvas e validadas manualmente."
     : "Credenciais da conta da plataforma salvas e cifradas. O Split Marketplace ainda depende do OAuth de cada tenant.";
 
-  return NextResponse.json({ message });
+  return NextResponse.json({
+    message,
+    provider,
+    configured: true,
+    status: "CREDENTIALS_SAVED",
+    validated: provider === "syncpay" || provider === "mercadopago",
+  });
 }

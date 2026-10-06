@@ -82,6 +82,7 @@ export function FinanceConsole() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [saveState, setSaveState] = useState<"idle" | "success" | "error">("idle");
 
   async function loadAccount(provider: "mercadopago" | "syncpay" = selectedProvider) {
     const response = await fetch(`/api/admin/platform-fees/receiving-account?provider=${provider}`, { cache: "no-store" });
@@ -141,10 +142,13 @@ export function FinanceConsole() {
       setClientId("");
       setClientSecret("");
       setWebhookSecret("");
-      setMessage(result.message);
+      setMessage(result.message || "Credenciais validadas com sucesso.");
+      setSaveState("success");
       await loadAccount(selectedProvider);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Erro ao salvar as credenciais.");
+      const nextError = saveError instanceof Error ? saveError.message : "Erro ao salvar as credenciais.";
+      setError(nextError);
+      setSaveState("error");
     } finally {
       setBusy(false);
     }
@@ -159,8 +163,18 @@ export function FinanceConsole() {
         <p className="text-sm text-slate-600">Ledger auditável por tenant, venda, gateway e transação.</p>
       </header>
 
-      {message && <p role="status" className="text-sm text-emerald-700">{message}</p>}
-      {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
+      {message && (
+        <div role="status" className="rounded-md border border-emerald-700/30 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-200">
+          <strong className="font-semibold">Confirmação:</strong> {message}
+        </div>
+      )}
+      {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+
+      {saveState === "success" && receivingAccount?.configured && (
+        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          Conta receptora confirmada: <strong>{selectedProvider === "syncpay" ? "SyncPay" : "Mercado Pago"}</strong> está configurada e validada.
+        </div>
+      )}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Resumo financeiro">
         {[
