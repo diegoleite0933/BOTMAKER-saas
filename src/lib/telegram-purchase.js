@@ -134,7 +134,6 @@ async function checkout(ctx, prisma, botRecord, product, bumpProduct, discountOv
       webhookSignature: webhookSignature || undefined,
       billingType: orderData.billingType,
       recurringInterval: orderData.recurringInterval,
-      platformFeeSplitRequested: payment.platformFeeSplitRequested === true,
     },
   });
 

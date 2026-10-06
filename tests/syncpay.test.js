@@ -93,7 +93,7 @@ test('SyncPay withdrawal request retries common payout endpoints and normalizes 
     return { ok: false, text: async () => 'not found' };
   };
 
-  const result = await createSyncPayWithdrawal({ accessToken: 'token-456', amount: 12.30, description: 'Taxa da plataforma', pixKey: 'abc123', destination: 'conta-de-destino', fetchImpl });
+  const result = await createSyncPayWithdrawal({ accessToken: 'token-456', amount: 12.30, description: 'Transferência de saldo', pixKey: 'abc123', destination: 'conta-de-destino', fetchImpl });
   assert.equal(result.id, 'with_001');
   assert.equal(result.status, 'queued');
   assert.equal(calls.some((call) => call.url.endsWith('/withdraw')), true);

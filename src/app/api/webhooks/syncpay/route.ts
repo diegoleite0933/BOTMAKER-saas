@@ -4,9 +4,7 @@ import { Telegraf } from "telegraf";
 import { deliverPaidOrder } from "@/lib/product-delivery.js";
 import { resolvePaymentCredentials } from "@/lib/payment-credentials.js";
 import { normalizeSyncPayStatus, verifySyncPayWebhookSignature } from "@/lib/syncpay.js";
-import { getSyncPayTransaction, createSyncPayWithdrawal } from "@/lib/syncpay.js";
-import { markPlatformFeeReceived, recordPlatformFeeRefund } from "@/lib/platform-fees.js";
-import { resolvePlatformReceivingCredentials } from "@/lib/payment-credentials.js";
+import { getSyncPayTransaction } from "@/lib/syncpay.js";
 
 const prisma = new PrismaClient();
 
@@ -21,32 +19,6 @@ async function findOrderBySyncPayIdentifier(identifier: string) {
     where: { paymentId: { contains: identifier } },
     include: { bot: true, product: { include: { deliveries: true } }, bumpProduct: { include: { deliveries: true } } },
   });
-}
-
-async function triggerPlatformFeePayout(order: any, platformReceiving: any) {
-  if (!platformReceiving?.clientId || !platformReceiving?.clientSecret) return null;
-
-  const amount = 0.3;
-  const result = await createSyncPayWithdrawal({
-    accessToken: platformReceiving.accessToken || undefined,
-    clientId: platformReceiving.clientId,
-    clientSecret: platformReceiving.clientSecret,
-    amount,
-    description: `Taxa da plataforma - pedido ${order.id}`,
-    currency: "BRL",
-    destination: platformReceiving.payoutDestination || platformReceiving.destination || undefined,
-    pixKey: platformReceiving.payoutPixKey || platformReceiving.pixKey || undefined,
-    bankAccount: platformReceiving.payoutBankAccount || platformReceiving.bankAccount || undefined,
-  });
-
-  await prisma.$transaction(async (transaction) => {
-    await markPlatformFeeReceived(transaction, order, {
-      providerReference: result.id || result.raw?.id || `syncpay_payout_${order.id}`,
-      confirmedAmountCents: 30,
-    });
-  });
-
-  return result;
 }
 
 function readWebhookIdentifier(payload: unknown): string | null {
@@ -167,33 +139,13 @@ export async function POST(req: Request) {
       });
 
       if (officialStatus === "paid" && !["paid", "refunded"].includes(order.status)) {
-        const platformReceiving = await resolvePlatformReceivingCredentials(prisma, "syncpay");
-        const splitConfirmed = order.platformFeeSplitRequested === true || Boolean(platformReceiving?.clientId && platformReceiving?.clientSecret);
-        if (!order.platformFeeSplitRequested && splitConfirmed) {
-          await prisma.order.update({ where: { id: order.id }, data: { platformFeeSplitRequested: true } });
-          order.platformFeeSplitRequested = true;
-        }
         const bot = new Telegraf(order.bot.token);
-        await deliverPaidOrder({ prisma, bot, order, splitConfirmed, splitReference: identifier });
-
-        if (splitConfirmed && platformReceiving) {
-          try {
-            const payout = await triggerPlatformFeePayout(order, platformReceiving);
-            if (payout) {
-              console.info(`[SYNC_PAY_PAYOUT] order=${order.id} withdrawal=${payout.id} status=${payout.status} amount=${payout.amount}`);
-            }
-          } catch (payoutError) {
-            console.error("Erro ao repassar taxa SyncPay para a conta receptora da plataforma:", payoutError);
-          }
-        }
+        await deliverPaidOrder({ prisma, bot, order });
       } else if (officialStatus === "refunded" && order.status === "paid") {
-        const result = await prisma.$transaction(async (transaction) => {
-          await transaction.order.updateMany({ where: { id: order.id, status: "paid" }, data: { status: "refunded" } });
-          return recordPlatformFeeRefund(transaction, order, { refundReference: identifier });
+        await prisma.order.updateMany({
+          where: { id: order.id, status: "paid" },
+          data: { status: "refunded" },
         });
-        if (result.created) {
-          console.info(`[PLATFORM_FEE] tenant=${order.bot.workspaceId} gateway=syncpay transaction=${identifier} sale=${order.id} fee=${result.amountCents} status=REFUND_ADJUSTMENT`);
-        }
       } else if (["failed", "cancelled"].includes(officialStatus)) {
         await prisma.order.updateMany({
           where: { id: order.id, status: { in: ["pending", "review"] } },

@@ -22,13 +22,13 @@ services:
       - key: NEXTAUTH_SECRET
         generateValue: true
       - key: NEXTAUTH_URL
-        value: "https://botmaker-web-iu2a.onrender.com"
+        value: ""
       - key: APP_URL
-        value: "https://botmaker-web-iu2a.onrender.com"
+        value: ""
       - key: PAYMENT_CREDENTIALS_ENCRYPTION_KEY
         generateValue: true
       - key: REDIS_URL
-        value: "redis://localhost:6379"
+        sync: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET

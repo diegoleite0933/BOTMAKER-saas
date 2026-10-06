@@ -1,6 +1,8 @@
-const { recordPaidOrderFee } = require("./platform-fees.js");
+async function deliverPaidOrder({ prisma, bot, order }) {
+  if (["paid", "refunded"].includes(order.status)) {
+    return false;
+  }
 
-async function deliverPaidOrder({ prisma, bot, order, splitConfirmed = false, splitReference = null }) {
   const products = [order.product, ...(order.bumpProduct ? [order.bumpProduct] : [])];
   const deliveries = [];
 
@@ -25,18 +27,12 @@ async function deliverPaidOrder({ prisma, bot, order, splitConfirmed = false, sp
   }
 
   try {
-    const transactionResult = await prisma.$transaction(async (transaction) => {
+    const committed = await prisma.$transaction(async (transaction) => {
       const updated = await transaction.order.updateMany({
         where: { id: order.id, status: { notIn: ["paid", "refunded"] } },
         data: { status: "paid" },
       });
-      if (!updated.count) return { committed: false, fee: null };
-
-      const fee = await recordPaidOrderFee(transaction, order, {
-        paymentStatus: "PAID",
-        splitConfirmed,
-        splitReference,
-      });
+      if (!updated.count) return false;
 
       for (const entry of deliveries) {
         await transaction.access.create({
@@ -52,22 +48,16 @@ async function deliverPaidOrder({ prisma, bot, order, splitConfirmed = false, sp
           },
         });
       }
-      return { committed: true, fee };
+      return true;
     });
 
-    if (transactionResult?.committed === false || transactionResult === false) {
+    if (!committed) {
       for (const entry of deliveries) {
         if (entry.inviteLink && entry.delivery.telegramChatId) {
           await bot.telegram.revokeChatInviteLink(entry.delivery.telegramChatId, entry.inviteLink).catch(() => undefined);
         }
       }
       return false;
-    }
-
-    if (transactionResult?.fee?.created) {
-      const gateway = String(order.paymentGateway || order.bot.paymentMethod || "unknown").toLowerCase();
-      const transactionId = String(order.paymentId || order.id);
-      console.info(`[PLATFORM_FEE] tenant=${order.bot.workspaceId} gateway=${gateway} transaction=${transactionId} sale=${order.id} fee=${transactionResult.fee.amountCents} status=${transactionResult.fee.status}`);
     }
   } catch (error) {
     for (const entry of deliveries) {

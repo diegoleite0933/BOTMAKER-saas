@@ -91,7 +91,6 @@ export function AdminConsole({ initialUsers, initialCpf }: { initialUsers: Admin
         <p className="text-xs font-semibold uppercase tracking-wider text-blue-700">Acesso restrito</p>
         <h1 className="text-3xl font-bold tracking-tight text-slate-950">Administração</h1>
         <p className="text-sm text-slate-600">Contas cadastradas e controle de acesso.</p>
-        <Link href="/dashboard/admin/finance" className="inline-flex h-9 items-center rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-100">Financeiro da plataforma</Link>
       </header>
 
       <Card>

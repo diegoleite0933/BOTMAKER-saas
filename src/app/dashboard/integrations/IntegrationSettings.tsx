@@ -204,7 +204,7 @@ export function IntegrationSettings() {
                 {provider.environmentFallback && <p className="mt-2 text-xs text-amber-600">Há uma credencial global de ambiente ativa; o valor não é exibido.</p>}
 
                 {provider.id === "mercadopago" && provider.marketplaceConnected && (
-                  <p className="mt-2 text-xs text-emerald-700">Conta conectada por OAuth Marketplace. Cobranças novas podem solicitar o split fixo de R$0,30 quando a aplicação estiver habilitada.</p>
+                  <p className="mt-2 text-xs text-emerald-700">Conta conectada por OAuth Marketplace. As cobranças continuam obedecendo ao gateway e ao webhook do tenant configurado.</p>
                 )}
 
                 {isEditing && fields.length > 0 ? (

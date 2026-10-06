@@ -3,7 +3,6 @@ import { PrismaClient } from "@prisma/client";
 import { Telegraf } from "telegraf";
 import { deliverPaidOrder } from "@/lib/product-delivery.js";
 import { verifyPaymentWebhookSignature } from "@/lib/payment-service.js";
-import { recordPlatformFeeRefund } from "@/lib/platform-fees.js";
 
 const prisma = new PrismaClient();
 
@@ -48,13 +47,10 @@ export async function POST(req: Request) {
         await deliverPaidOrder({ prisma, bot, order });
       }
     } else if (["REFUNDED", "CHARGED_BACK"].includes(normalizedStatus)) {
-      const result = await prisma.$transaction(async (transaction) => {
-        await transaction.order.updateMany({ where: { id: order.id, status: "paid" }, data: { status: "refunded" } });
-        return recordPlatformFeeRefund(transaction, order, { refundReference: String(body.refundId || body.transactionId || identifier) });
+      await prisma.order.updateMany({
+        where: { id: order.id, status: "paid" },
+        data: { status: "refunded" },
       });
-      if (result.created) {
-        console.info(`[PLATFORM_FEE] tenant=${order.bot.workspaceId} gateway=amplopay transaction=${identifier} sale=${order.id} fee=${result.amountCents} status=REFUND_ADJUSTMENT`);
-      }
     }
 
     await prisma.webhookEvent.update({

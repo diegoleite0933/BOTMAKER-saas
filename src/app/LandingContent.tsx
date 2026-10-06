@@ -123,20 +123,20 @@ export function LandingContent() {
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#79baff]">Promoção ativa</p>
-                <h2 className="mt-3 text-2xl font-semibold tracking-[-0.06em] text-white sm:text-3xl">Taxa fixa de R$ 0,30 por venda.</h2>
+                <h2 className="mt-3 text-2xl font-semibold tracking-[-0.06em] text-white sm:text-3xl">Pagamentos e acesso em fluxo automático.</h2>
               </div>
 
               <div className="rounded-2xl border border-[#204767] bg-[#0a1723] px-4 py-3 text-center">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-[#8ec2ff]">PIX direto</div>
-                <div className="mt-1 text-lg font-bold text-[#aef2d0]">R$ 0,00</div>
+                <div className="mt-1 text-lg font-bold text-[#aef2d0]">Disponível</div>
               </div>
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-3">
               {[
-                { title: "Sem mensalidade", text: "Você paga apenas quando a venda acontece." },
-                { title: "Preço transparente", text: "Sem taxa escondida, sem surprises no fechamento." },
-                { title: "Mais barato que a concorrência", text: "Em comparação com plataformas que cobram porcentagem ou mensalidade." },
+                { title: "Sem taxa fixa embutida", text: "Você mantém o controle do seu preço de venda e da operação do bot." },
+                { title: "Preço transparente", text: "A cobrança continua sendo feita pelo gateway escolhido pelo cliente." },
+                { title: "Foco em automação", text: "O valor real vem da venda e da entrega em tempo real do acesso." },
               ].map(({ title, text }) => (
                 <div key={title} className="rounded-2xl border border-white/8 bg-[#0d141b] p-4">
                   <div className="text-sm font-semibold text-white">{title}</div>
@@ -159,22 +159,22 @@ export function LandingContent() {
             {[
               {
                 name: "Outros sites",
-                fee: "3% a 8% por venda",
-                extra: "+ mensalidade fixa",
-                details: ["Taxa pesada em cada venda", "Mensalidade extra", "Estrutura menos transparente", "Cobrança escondida em alguns planos"],
+                fee: "Taxa variável",
+                extra: "depende do plano e do volume",
+                details: ["Cobrança extra por volume", "Estrutura menos transparente", "Menos controle do cliente", "Margem mais apertada para escalar"],
                 highlight: false,
               },
               {
                 name: "Marketplaces tradicionais",
-                fee: "2% a 5% + taxa de operação",
-                extra: "+ comissão por cada transação",
-                details: ["Cobrança por volume", "Menos controle do cliente", "Falta de autonomia na operação", "Pior margem para crescer"],
+                fee: "Comissão por transação",
+                extra: "+ dependência da plataforma",
+                details: ["Cobrança por operação", "Menos autonomia na venda", "Falta de controle do cliente", "Fluxo mais rígido para escalar"],
                 highlight: false,
               },
               {
                 name: "Odisseia Bot",
-                fee: "R$ 0,30 por venda",
-                extra: "sem mensalidade fixa",
+                fee: "Sem taxa fixa",
+                extra: "você define seu preço e gateway",
                 details: ["Custo previsível", "Pagamento só quando a venda ocorre", "Controle total do fluxo", "Mais margem para escalar"],
                 highlight: true,
               },

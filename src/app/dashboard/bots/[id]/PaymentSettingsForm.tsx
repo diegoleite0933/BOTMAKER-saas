@@ -57,7 +57,7 @@ export function PaymentSettingsForm({
             <option value="pix_direto">PIX Direto, com revisão manual</option>
             <option value="syncpay">SyncPay</option>
           </select>
-          <p className="text-xs text-slate-500">Credenciais ficam em Integrações. A taxa da plataforma é R$0,30 por venda paga; PIX Direto é isento. Quando o gateway não confirma split, a taxa fica pendente e não é apresentada como recebida. PIX Direto exige revisão manual.</p>
+          <p className="text-xs text-slate-500">Credenciais ficam em Integrações. Escolha o gateway que habilitará o checkout do bot. PIX Direto exige revisão manual.</p>
         </div>
 
         {method === "pix_direto" && (

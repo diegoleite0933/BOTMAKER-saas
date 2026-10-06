@@ -12,8 +12,7 @@ export function LandingCalculator() {
   const revenue = Number(monthlyRevenue) || 0;
   const sales = Math.max(0, Math.floor(Number(salesCount) || 0));
   const rate = Math.min(100, Math.max(0, Number(hypotheticalRate) || 0));
-  const odysseyFee = sales * 0.3;
-  const hypotheticalFee = revenue * rate / 100;
+  const projectedTake = revenue * rate / 100;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
@@ -43,18 +42,18 @@ export function LandingCalculator() {
         <div className="flex items-center justify-between gap-3 border-b border-[#1d1d1d] pb-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#777]">ODISSEIA BOT</p>
-            <p className="mt-1 text-sm text-[#aaa]">Taxa fixa · {sales} {sales === 1 ? "venda" : "vendas"} × R$ 0,30</p>
+            <p className="mt-1 text-sm text-[#aaa]">Estimativa de conversão · {sales} vendas</p>
           </div>
-          <p className="text-xl font-semibold tabular-nums text-[#16c784]">{currency.format(odysseyFee)}</p>
+          <p className="text-xl font-semibold tabular-nums text-[#16c784]">{currency.format(projectedTake)}</p>
         </div>
         <div className="flex items-center justify-between gap-3 border-b border-[#1d1d1d] pb-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#777]">Cenário percentual</p>
             <p className="mt-1 text-sm text-[#aaa]">Simulação de {rate.toLocaleString("pt-BR")}% sobre {currency.format(revenue)}</p>
           </div>
-          <p className="text-xl font-semibold tabular-nums text-white">{currency.format(hypotheticalFee)}</p>
+          <p className="text-xl font-semibold tabular-nums text-white">{currency.format(revenue * rate / 100)}</p>
         </div>
-        <p className="text-xs leading-relaxed text-[#858585]">A proposta comercial é uma taxa fixa de R$ 0,30 por venda durante o lançamento. A cobrança automática dessa taxa ainda não está integrada ao checkout.</p>
+        <p className="text-xs leading-relaxed text-[#858585]">A simulação é ilustrativa e serve para comparar cenários de faturamento. O foco do produto é a venda e a liberação de acesso, sem taxa fixa embutida.</p>
       </div>
     </div>
   );

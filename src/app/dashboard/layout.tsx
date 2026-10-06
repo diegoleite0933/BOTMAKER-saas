@@ -42,14 +42,9 @@ export default async function DashboardLayout({
             🔌 Integrações
           </Link>
           {isAdminEmail(session.user?.email) && (
-            <>
-              <Link href="/dashboard/admin" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-900 hover:text-white transition-colors">
-                🛡️ Administração
-              </Link>
-              <Link href="/dashboard/admin/finance" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-900 hover:text-white transition-colors">
-                💰 Financeiro
-              </Link>
-            </>
+            <Link href="/dashboard/admin" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-900 hover:text-white transition-colors">
+              🛡️ Administração
+            </Link>
           )}
         </nav>
         <div className="p-4 border-t border-slate-800">
@@ -81,9 +76,6 @@ export default async function DashboardLayout({
           <Link href="/dashboard/integrations" className="shrink-0 rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Integrações</Link>
           {isAdminEmail(session.user?.email) && (
             <Link href="/dashboard/admin" className="shrink-0 rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Administração</Link>
-          )}
-          {isAdminEmail(session.user?.email) && (
-            <Link href="/dashboard/admin/finance" className="shrink-0 rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">Financeiro</Link>
           )}
         </nav>
         <main className="flex-1 p-4 md:p-8 lg:p-10 max-w-7xl mx-auto w-full">

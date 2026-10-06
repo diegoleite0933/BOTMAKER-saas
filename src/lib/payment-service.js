@@ -20,7 +20,6 @@ const providerFactories = {
       pixCode: payment.pixCode,
       qrCodeBase64: payment.qrCodeBase64,
       ticketUrl: payment.ticketUrl,
-      platformFeeSplitRequested: payment.applicationFeeCents === 30,
     };
   },
   amplopay: async (request) => {
@@ -74,7 +73,6 @@ const providerFactories = {
       qrCodeBase64: payment.qrCodeBase64,
       ticketUrl: payment.ticketUrl,
       identifier: payment.identifier,
-      platformFeeSplitRequested: request.applicationFeeCents === 30,
     };
   },
 };
