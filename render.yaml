@@ -22,9 +22,11 @@ services:
       - key: NEXTAUTH_SECRET
         generateValue: true
       - key: NEXTAUTH_URL
-        value: ""
+        value: https://botmaker-web-iu2a.onrender.com
       - key: APP_URL
-        value: ""
+        value: https://botmaker-web-iu2a.onrender.com
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://botmaker-web-iu2a.onrender.com
       - key: PAYMENT_CREDENTIALS_ENCRYPTION_KEY
         generateValue: true
       - key: REDIS_URL
